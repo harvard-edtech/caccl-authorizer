@@ -1,0 +1,36 @@
+{
+  "name": "caccl-token-manager",
+  "version": "1.0.0",
+  "description": "Acquires Canvas tokens through via OAuth, stores refresh tokens, and refreshes access tokens when they expire.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harvard-edtech/caccl-token-manager.git"
+  },
+  "keywords": [
+    "Canvas",
+    "CACCL",
+    "Token",
+    "Access",
+    "Token",
+    "Refresh",
+    "Token",
+    "OAuth"
+  ],
+  "author": "Gabriel Abrams <gabeabrams@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/harvard-edtech/caccl-token-manager/issues"
+  },
+  "homepage": "https://github.com/harvard-edtech/caccl-token-manager#readme",
+  "devDependencies": {
+    "eslint": "^5.7.0",
+    "eslint-config-airbnb": "^17.1.0",
+    "eslint-plugin-import": "^2.14.0",
+    "eslint-plugin-jsx-a11y": "^6.1.2",
+    "eslint-plugin-react": "^7.11.1"
+  }
+}
