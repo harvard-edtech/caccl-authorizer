@@ -32,5 +32,9 @@
     "eslint-plugin-import": "^2.14.0",
     "eslint-plugin-jsx-a11y": "^6.1.2",
     "eslint-plugin-react": "^7.11.1"
+  },
+  "dependencies": {
+    "https": "^1.0.0",
+    "querystring": "^0.2.0"
   }
 }
