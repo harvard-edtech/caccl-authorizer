@@ -1,14 +1,14 @@
 class MemoryTokenStore {
   constructor() {
-    this._store = {};
+    this._store = new Map();
   }
 
   get(canvasId) {
-    return Promise.resolve(this._store[canvasId]);
+    return Promise.resolve(this._store.get(canvasId));
   }
 
   set(canvasId, refreshToken) {
-    this._store[canvasId] = refreshToken;
+    this._store.set(canvasId, refreshToken);
     return Promise.resolve();
   }
 }
