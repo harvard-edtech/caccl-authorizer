@@ -3,6 +3,30 @@ const MemoryTokenStore = require('./MemoryTokenStore.js');
 const errorCodes = require('./errorCodes.js');
 const sendRequest = require('./sendRequest.js');
 
+/**
+ * Initializes the token manager on the given express app
+ * @author Gabriel Abrams
+ * @param {object} app - express app
+ * @param {string} canvasHost - canvas host to use for oauth exchange
+ * @param {object} developerCredentials - canvas app developer credentials in
+ *   the form { client_id, client_secret }
+ * @param {string} [authorizePath=/authorize] - the route to add to the express
+ *   app (when a user visits this route, we will attempt to refresh their token
+ *   and if we can't, we will prompt them to authorize the tool). All types of
+ *   requests are listened for: POST, GET, etc.
+ * @param {string} [defaultAuthorizedRedirect=authorizePath + '/done'] - the
+ *   default route to visit after authorization is complete (you can override
+ *   this value for a specific authorization call by including query.next or
+ *   body.next, a path/url to visit after completion)
+ * @param {array.<string>} [autoRefreshRoutes=['*']] - the list of routes to
+ *   automatically refresh the access token for (if the access token has
+ *   expired)
+ * @param {object|null} [tokenStore=memory token store] - null to turn off
+ *   storage of refresh tokens, exclude parameter to use memory token store,
+ *   or include a custom token store of form { get(key), set(key, val) } where
+ *   both functions return promises
+ * @return {string} authorizePath that is being served
+ */
 module.exports = (options) => {
   // Check if required options are included
   if (
@@ -271,4 +295,6 @@ module.exports = (options) => {
         });
     });
   });
+
+  return authorizePath;
 };
