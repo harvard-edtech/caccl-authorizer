@@ -244,6 +244,7 @@ module.exports = (config) => {
     }
 
     // Attempt to trade access token for actual access token
+    let launchUserId;
     sendRequest({
       host: config.canvasHost,
       path: '/login/oauth2/token',
@@ -263,7 +264,11 @@ module.exports = (config) => {
         // Extract token
         const accessToken = body.access_token;
         const refreshToken = body.refresh_token;
-        const accessTokenExpiry = new Date().getTime() + 3540000;
+        const expiresInMs = (body.expires_in * 0.99 * 1000);
+        const accessTokenExpiry = new Date().getTime() + expiresInMs;
+
+        // Extract user info
+        launchUserId = body.user.id;
 
         // Save in session
         return req.logInManually(
@@ -275,20 +280,7 @@ module.exports = (config) => {
       .then((tokens) => {
         // Store in token store (if applicable)
         if (tokenStore) {
-          // Lookup current user's Canvas ID, to use as a key in the store
-          return sendRequest({
-            host: config.canvasHost,
-            path: '/api/v1/users/self/profile',
-            params: {
-              access_token: tokens.accessToken,
-            },
-          })
-            .then((response) => {
-              // Store in token store
-              const body = JSON.parse(response);
-              const canvasId = body.id;
-              return tokenStore.set(canvasId, tokens.refreshToken);
-            });
+          return tokenStore.set(launchUserId, tokens.refreshToken);
         }
         // Nothing to save. Just continue
         return Promise.resolve();
