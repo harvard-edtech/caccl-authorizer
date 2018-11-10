@@ -247,6 +247,7 @@ module.exports = (config) => {
     sendRequest({
       host: config.canvasHost,
       path: '/login/oauth2/token',
+      method: 'POST',
       params: {
         code,
         client_id: config.developerCredentials.client_id,
