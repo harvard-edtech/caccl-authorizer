@@ -256,11 +256,7 @@ module.exports = (config) => {
         redirect_uri: 'https://' + req.headers.host + launchPath,
       },
     })
-      .then((response) => {
-        // Process Canvas' response
-        console.log(response);
-        const body = JSON.parse(response.text);
-
+      .then((body) => {
         // Extract token
         const accessToken = body.access_token;
         const refreshToken = body.refresh_token;
