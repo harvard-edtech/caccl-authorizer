@@ -35,6 +35,8 @@ const sendRequest = (options) => {
   // Create data (only if not GET)
   const data = (method !== 'GET' ? stringifiedParams : null);
 
+  console.log('Send request', method, url, data);
+
   // Send request
   return axios({
     method,
