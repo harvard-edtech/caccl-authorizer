@@ -257,6 +257,7 @@ module.exports = (config) => {
       },
     })
       .then((body) => {
+        console.log('swap body', body);
         // Extract token
         const accessToken = body.access_token;
         const refreshToken = body.refresh_token;
