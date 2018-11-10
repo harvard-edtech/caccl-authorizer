@@ -175,6 +175,7 @@ module.exports = (config) => {
       || req.body.next
       || defaultAuthorizedRedirect
     );
+    console.log('step1', nextPath);
     // Look for a refresh token
     let getRefreshTokenPromise;
     if (req.session && req.session.refreshToken) {
@@ -203,7 +204,9 @@ module.exports = (config) => {
           return res.redirect(nextPath);
         }
         // Refresh failed. Redirect to start authorization process
-        return res.redirect('https://' + config.canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + launchPath + '&state=' + nextPath);
+        const authURL = 'https://' + config.canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + launchPath + '&state=' + nextPath;
+        console.log('authurl', authURL);
+        return res.redirect(authURL);
       });
   });
 
@@ -217,6 +220,8 @@ module.exports = (config) => {
     ) {
       return next();
     }
+
+    console.log('step2', req.query);
 
     // Parse the response
     const nextPath = req.query.state;
@@ -287,6 +292,7 @@ module.exports = (config) => {
         return Promise.resolve();
       })
       .then(() => {
+        console.log('finishing', nextPath);
         return res.redirect(nextPath + '?success=true');
       })
       .catch(() => {
