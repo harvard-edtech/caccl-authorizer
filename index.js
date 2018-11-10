@@ -295,7 +295,8 @@ module.exports = (config) => {
         console.log('finishing', nextPath);
         return res.redirect(nextPath + '?success=true');
       })
-      .catch(() => {
+      .catch((err) => {
+        console.log('err', err);
         return res.redirect(nextPath + '?success=false&reason=error');
       });
   });
