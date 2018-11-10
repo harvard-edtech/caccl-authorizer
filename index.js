@@ -256,6 +256,7 @@ module.exports = (config) => {
     })
       .then((response) => {
         // Process Canvas' response
+        console.log(response);
         const body = JSON.parse(response.text);
 
         // Extract token
