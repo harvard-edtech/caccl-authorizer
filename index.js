@@ -10,7 +10,7 @@ const sendRequest = require('./sendRequest.js');
  * @param {string} canvasHost - canvas host to use for oauth exchange
  * @param {object} developerCredentials - canvas app developer credentials in
  *   the form { client_id, client_secret }
- * @param {string} [authorizePath=/launch] - the route to add to the express
+ * @param {string} [launchPath=/launch] - the route to add to the express
  *   app (when a user visits this route, we will attempt to refresh their token
  *   and if we can't, we will prompt them to authorize the tool). We listen on
  *   GET
@@ -27,7 +27,6 @@ const sendRequest = require('./sendRequest.js');
  *   both functions return promises
  * @param {function} [onManualLogin] - a function to call with params (req, res)
  *   after req.logInManually is called and finishes manually logging in
- * @return {string} authorizePath that is being served
  */
 module.exports = (config) => {
   // Check if required config are included
@@ -43,15 +42,15 @@ module.exports = (config) => {
     });
   }
 
-  // Initialize authorizePath
-  const authorizePath = config.authorizePath || '/launch';
+  // Initialize launchPath
+  const launchPath = config.launchPath || '/launch';
 
   // Initialize autoRefreshRoutes
   const autoRefreshRoutes = config.autoRefreshRoutes || ['*'];
 
   // Initialize the default authorized redirect path
   const defaultAuthorizedRedirect = (
-    config.defaultAuthorizedRedirect || authorizePath + '/done'
+    config.defaultAuthorizedRedirect || launchPath + '/done'
   );
 
   // Initialize token store
@@ -161,7 +160,7 @@ module.exports = (config) => {
 
   // Step 1: Try to refresh, if not possible, redirect to authorization screen
 
-  config.app.use(authorizePath, (req, res, next) => {
+  config.app.use(launchPath, (req, res, next) => {
     // Skip if not GET
     if (req.method !== 'GET') {
       return next();
@@ -206,12 +205,12 @@ module.exports = (config) => {
           return res.redirect(nextPath);
         }
         // Refresh failed. Redirect to start authorization process
-        return res.redirect('https://' + config.canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + authorizePath + '&state=' + nextPath);
+        return res.redirect('https://' + config.canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + launchPath + '&state=' + nextPath);
       });
   });
 
   // Step 2: Receive code or denial
-  config.app.use(authorizePath, (req, res, next) => {
+  config.app.use(launchPath, (req, res, next) => {
     // Skip unless we have a code OR error and a state
     if (
       !req.query
@@ -249,7 +248,7 @@ module.exports = (config) => {
         code,
         client_id: config.developerCredentials.client_id,
         client_secret: config.developerCredentials.client_secret,
-        redirect_uri: 'https://' + req.headers.host + authorizePath,
+        redirect_uri: 'https://' + req.headers.host + launchPath,
       },
     })
       .then((response) => {
@@ -299,7 +298,7 @@ module.exports = (config) => {
 
   // We use middleware to handle authorization. If we get to the actual route,
   // we've failed
-  config.app.get(authorizePath, (req, res) => {
+  config.app.get(launchPath, (req, res) => {
     return res.status(500).send('Oops! Something went wrong during authorization. Please re-launch this app.');
   });
 
@@ -340,6 +339,4 @@ module.exports = (config) => {
         });
     });
   });
-
-  return authorizePath;
 };
