@@ -165,7 +165,7 @@ module.exports = (config) => {
     }
 
     // Skip if not step 1
-    if (req.body.code) {
+    if (req.query.code && req.query.state) {
       return next();
     }
 
