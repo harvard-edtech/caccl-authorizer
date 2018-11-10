@@ -10,11 +10,11 @@ const sendRequest = require('./sendRequest.js');
  * @param {string} canvasHost - canvas host to use for oauth exchange
  * @param {object} developerCredentials - canvas app developer credentials in
  *   the form { client_id, client_secret }
- * @param {string} [authorizePath=/authorize] - the route to add to the express
+ * @param {string} [authorizePath=/launch] - the route to add to the express
  *   app (when a user visits this route, we will attempt to refresh their token
- *   and if we can't, we will prompt them to authorize the tool). All types of
- *   requests are listened for: POST, GET, etc.
- * @param {string} [defaultAuthorizedRedirect=authorizePath + '/done'] - the
+ *   and if we can't, we will prompt them to authorize the tool). We listen on
+ *   GET
+ * @param {string} [defaultAuthorizedRedirect='/'] - the
  *   default route to visit after authorization is complete (you can override
  *   this value for a specific authorization call by including query.next or
  *   body.next, a path/url to visit after completion)
@@ -44,7 +44,7 @@ module.exports = (config) => {
   }
 
   // Initialize authorizePath
-  const authorizePath = config.authorizePath || '/authorize';
+  const authorizePath = config.authorizePath || '/launch';
 
   // Initialize autoRefreshRoutes
   const autoRefreshRoutes = config.autoRefreshRoutes || ['*'];
@@ -161,7 +161,17 @@ module.exports = (config) => {
 
   // Step 1: Try to refresh, if not possible, redirect to authorization screen
 
-  config.app.all(authorizePath, (req, res) => {
+  config.app.use(authorizePath, (req, res, next) => {
+    // Skip if not GET
+    if (req.method !== 'GET') {
+      return next();
+    }
+
+    // Skip if not step 1
+    if (req.body.code) {
+      return next();
+    }
+
     // Extract the next path
     const nextPath = (
       req.query.next
@@ -196,21 +206,24 @@ module.exports = (config) => {
           return res.redirect(nextPath);
         }
         // Refresh failed. Redirect to start authorization process
-        return res.redirect('https://' + config.canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + authorizePath + '/responded?state=' + nextPath);
+        return res.redirect('https://' + config.canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + authorizePath + '&state=' + nextPath);
       });
   });
 
   // Step 2: Receive code or denial
-  config.app.get(authorizePath + '/responded', (req, res) => {
-    // Make sure we have the correct response from Canvas
-    if (!req.query.state) {
-      // Authorization failed
-      return res.send('Oops! Something went wrong during authorization. Please re-launch this app.');
+  config.app.use(authorizePath, (req, res, next) => {
+    // Skip unless we have a code OR error and a state
+    if (
+      !req.query
+      || !req.query.state
+      || (!req.query.code && !req.query.error)
+    ) {
+      return next();
     }
 
     // Parse the response
     const nextPath = req.query.state;
-    const { code, error } = req.query.code;
+    const { code, error } = req.query;
 
     // Check for invalid Canvas response
     if (
@@ -236,7 +249,7 @@ module.exports = (config) => {
         code,
         client_id: config.developerCredentials.client_id,
         client_secret: config.developerCredentials.client_secret,
-        redirect_uri: 'https://' + req.headers.host + nextPath,
+        redirect_uri: 'https://' + req.headers.host + authorizePath,
       },
     })
       .then((response) => {
@@ -282,6 +295,12 @@ module.exports = (config) => {
       .catch(() => {
         return res.redirect(nextPath + '?success=false&reason=error');
       });
+  });
+
+  // We use middleware to handle authorization. If we get to the actual route,
+  // we've failed
+  config.app.get(authorizePath, (req, res) => {
+    return res.status(500).send('Oops! Something went wrong during authorization. Please re-launch this app.');
   });
 
   /*------------------------------------------------------------------------*/
