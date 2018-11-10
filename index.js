@@ -256,7 +256,8 @@ module.exports = (config) => {
         redirect_uri: 'https://' + req.headers.host + launchPath,
       },
     })
-      .then((body) => {
+      .then((response) => {
+        const { body } = response;
         console.log('swap body', body);
         // Extract token
         const accessToken = body.access_token;
