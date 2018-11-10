@@ -49,9 +49,7 @@ module.exports = (config) => {
   const autoRefreshRoutes = config.autoRefreshRoutes || ['*'];
 
   // Initialize the default authorized redirect path
-  const defaultAuthorizedRedirect = (
-    config.defaultAuthorizedRedirect || launchPath + '/done'
-  );
+  const defaultAuthorizedRedirect = config.defaultAuthorizedRedirect || '/';
 
   // Initialize token store
   let tokenStore;
