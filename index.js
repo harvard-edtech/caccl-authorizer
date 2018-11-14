@@ -128,6 +128,7 @@ module.exports = (config) => {
       || !req.session
     ) {
       // No refresh token or no session to save to, resolve with false
+      console.log('Could not refresh: no vars');
       return Promise.resolve(false);
     }
     return sendRequest({
@@ -143,7 +144,8 @@ module.exports = (config) => {
     })
       .then((response) => {
         // Parse to get token
-        const body = JSON.parse(response.text);
+        const { body } = response;
+        console.log(body);
         const accessToken = body.access_token;
         const accessTokenExpiry = new Date().getTime() + 3540000;
         // Save credentials
