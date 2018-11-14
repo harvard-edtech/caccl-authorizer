@@ -128,7 +128,6 @@ module.exports = (config) => {
       || !req.session
     ) {
       // No refresh token or no session to save to, resolve with false
-      console.log('Could not refresh: no vars');
       return Promise.resolve(false);
     }
     return sendRequest({
@@ -145,7 +144,6 @@ module.exports = (config) => {
       .then((response) => {
         // Parse to get token
         const { body } = response;
-        console.log(body);
         const accessToken = body.access_token;
         const accessTokenExpiry = new Date().getTime() + 3540000;
         // Save credentials
@@ -258,12 +256,11 @@ module.exports = (config) => {
       || req.body.next
       || defaultAuthorizedRedirect
     );
-    console.log('session', req.session);
+
     // Look for a refresh token
     let getRefreshTokenPromise;
     if (req.session && req.session.refreshToken) {
       // Refresh token is in session
-      console.log('Refreshing based on refresh token in session', req.session.refreshToken);
       getRefreshTokenPromise = Promise.resolve(req.session.refreshToken);
     } else if (
       tokenStore
@@ -271,18 +268,14 @@ module.exports = (config) => {
       && req.session.currentUserCanvasId
     ) {
       // Look for refresh token in the token store
-      console.log('refreshing based on refresh token ins tore (looking up)');
       getRefreshTokenPromise = tokenStore.get(req.session.currentUserCanvasId);
     } else {
       // Can't refresh! Return null to jump to authorization
-      console.log('not refreshing', !req.session, req.session.currentUserCanvasId, req.session.launchInfo);
       getRefreshTokenPromise = Promise.resolve(null);
     }
     // Use refresh token to refresh, or jump to auth if no refresh token
     return getRefreshTokenPromise
       .then((refreshToken) => {
-        console.log('Refresh token we got:', refreshToken);
-        console.log(tokenStore._store);
         // Attempt to refresh
         return refreshAuthorization(req, refreshToken);
       })
