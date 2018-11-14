@@ -1,79 +1,70 @@
+<!-- EJS to pre-process the course list -->
 <%
-// Pre-process courses into terms
-const terms = {}; // Name to [] list of courses
+  // Pre-process courses into terms
+  const terms = {}; // Name to [] list of courses
 
-courses.forEach((course) => {
-  // Link
-  course.link = `${launchPath}?course=${course.id}&next=${nextPath}`;
-  // Privileges
-  let isTeacher;
-  let isTA;
-  (course.enrollments || []).forEach((enrollment) => {
-    if (enrollment.type === 'teacher') {
-      isTeacher = true;
+  courses.forEach((course) => {
+    // Link
+    course.link = `${launchPath}?course=${course.id}&next=${nextPath}`;
+    // Privileges
+    let isTeacher;
+    let isTA;
+    (course.enrollments || []).forEach((enrollment) => {
+      if (enrollment.type === 'teacher') {
+        isTeacher = true;
+      }
+      if (enrollment.type === 'ta') {
+        isTA = true;
+      }
+    });
+    let privileges;
+    if (isTeacher) {
+      privileges = 'teacher';
+    } else if (isTA) {
+      privileges = 'teaching assistant';
     }
-    if (enrollment.type === 'ta') {
-      isTA = true;
+    course.privileges = privileges;
+    // Term
+    if (!terms[course.term.name]) {
+      terms[course.term.name] = [];
     }
+    terms[course.term.name].push(course);
   });
-  let privileges;
-  if (isTeacher) {
-    privileges = 'teacher';
-  } else if (isTA) {
-    privileges = 'teaching assistant';
-  }
-  course.privileges = privileges;
-  // Term
-  if (!terms[course.term.name]) {
-    terms[course.term.name] = [];
-  }
-  terms[course.term.name].push(course);
-});
 
-const termsList = [];
-Object.keys(terms).forEach((term) => {
-  termsList.push({
-    name: term,
-    courses: terms[term],
+  // Organize the terms map into a list of courses
+  const termsList = [];
+  Object.keys(terms).forEach((term) => {
+    termsList.push({
+      name: term,
+      courses: terms[term],
+    });
   });
-});
-termsList.sort();
 %>
 
 <head>
+  <!-- Metadata to make scaling work better -->
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>Choose Course</title>
 
-  <!-- Inline styles for simplicity -->
+  <!-- Import google font to match Canvas authorization page font -->
   <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
+
+  <!-- Inline styles for simplicity -->
+  <!-- Designed to replicate Canvas authorization page to minimize confusion -->
   <style type="text/css">
+    /* ----- PAGE/LAYOUT: ----- */
+
+    /* Body (background color and font to match Canvas authorization page) */
     body {
       background-color: #313c45;
       text-align: center;
       font-family: 'Lato', sans-serif;
     }
 
-    .course-button {
-      background-color: #3b8edc;
-      color: white;
-      font-weight: bold;
-      border-radius: 5px;
-      padding-left: 15px;
-      padding-right: 15px;
-      padding-top: 20px;
-      padding-bottom: 20px;
-      display: block;
-      margin-bottom: 10px;
-      text-decoration: none;
-    }
-
-    .course-button:hover {
-      background-color: #48a8f0;
-    }
-
+    /* Container so the course chooser won't span the whole width of the page */
     .container {
       margin-left: 30px;
       margin-right: 30px;
@@ -90,6 +81,7 @@ termsList.sort();
       text-align: left;
     }
 
+    /* Content header (top of page, separated from content) */
     .header {
       border-bottom: 1px solid black;
       padding-left: 15px;
@@ -101,16 +93,19 @@ termsList.sort();
       border-radius: 5px 5px 0 0;
     }
 
+    /* Page title */
     .title {
       font-size: 1.5em;
       font-weight: bold;
     }
 
+    /* Page subtitle, slightly dimmed */
     .subtitle {
       font-size: 1.2em;
       color: #ccc;
     }
 
+    /* Lower portion of the page, white background, the content: course list */
     .content {
       background-color: white;
       border-radius: 0 0 5px 5px;
@@ -121,15 +116,44 @@ termsList.sort();
       padding-bottom: 10px;
     }
 
+    /* ----- TERM: ----- */
+
+    /* Large, centered term title */
     .term-title {
       font-size: 1.2em;
       text-align: center;
       margin-bottom: 10px;
     }
+
+    /* ----- COURSE: ----- */
+
+    /* Course button (same color as the "Authorize" button in the Canvas
+       authorize page) */
+    .course-button {
+      background-color: #3b8edc;
+      color: white;
+      font-weight: bold;
+      border-radius: 5px;
+      padding-left: 15px;
+      padding-right: 15px;
+      padding-top: 20px;
+      padding-bottom: 20px;
+      display: block;
+      margin-bottom: 10px;
+      text-decoration: none;
+    }
+
+    /* Highlight the course button on hover */
+    .course-button:hover {
+      background-color: #48a8f0;
+    }
+
+    /* Large course title */
     .course-title {
       font-size: 1.2em;
     }
 
+    /* Smaller, dimmer course role description */
     .course-role {
       font-size: 1em;
       color: #ddd;
@@ -140,36 +164,53 @@ termsList.sort();
 
 <body>
 
+  <!-- Page content -->
   <div class="container">
+
+    <!-- Header (title and subtitle) -->
     <div class="header">
       <div class="title">Choose Course</div>
       <div class="subtitle">Which course do you want to launch this app from?</div>
     </div>
+
+    <!-- Content (list of courses) -->
     <div class="content">
+      <!-- Show message if the user has no courses -->
       <% if (terms.length === 0) { %>
         <div class="subtitle">
           Oops! You aren't enrolled in or an instructor of any courses.
         </div>
       <% } %>
 
+      <!-- Show courses term by term -->
       <% termsList.forEach((term) => { %>
+
+        <!-- Term title -->
         <div class="term-title">
           <%= term.name %>
         </div>
+
+        <!-- List all courses in this term (create a button for each) -->
         <% term.courses.forEach((course) => { %>
           <a class="course-button" href="<%= course.link %>" title="Launch from course: <%= course.name %>">
+            <!-- Course title -->
             <div class="course-title">
               <%= course.name %>
             </div>
+
+            <!-- If the user has teacher or TA privileges, display that here -->
             <% if (course.privileges) { %>
               <div class="course-role">
                 You have <em><%= course.privileges %></em> privileges.
               </div>
             <% } %>
           </a>
-        <% }); %>
-      <% }); %>
-    </div>
-  </div>
+        <% }); %><!-- End term.courses.forEach -->
+
+      <% }); %><!-- End termList.forEach -->
+
+    </div><!-- End Content -->
+
+  </div><!-- End Container -->
 
 </body>
