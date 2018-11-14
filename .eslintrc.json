@@ -24,6 +24,7 @@
       {
         "code": 80,
         "ignoreStrings": true,
+        "ignoreTemplateLiterals": true,
         "ignoreUrls": true
       }
     ],

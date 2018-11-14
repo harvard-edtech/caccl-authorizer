@@ -1,15 +1,53 @@
+const fs = require('fs');
+const path = require('path');
+const ejs = require('ejs');
+
 const CACCLError = require('../caccl-error/index.js'); // TODO: switch to actual library
 const MemoryTokenStore = require('./MemoryTokenStore.js');
 const errorCodes = require('./errorCodes.js');
 const sendRequest = require('./sendRequest.js');
+const genLTILaunch = require('./genLTILaunch.js');
+
+// EJS template for course chooser
+const courseChooserTemplate = ejs.compile(
+  fs.readFileSync(
+    path.join(__dirname, '/courseChooser.ejs'),
+    'utf-8'
+  )
+);
+
+/**
+ * Creates the HTML for a course chooser page
+ * @author Gabriel Abrams
+ * @param {object} courses - the list of Canvas course objects to render
+ * @return html of a course chooser page
+ */
+const renderCourseChooser = (options) => {
+  const {
+    res,
+    launchPath,
+    courses,
+    nextPath,
+  } = options;
+
+  return res.send(
+    courseChooserTemplate({
+      launchPath,
+      courses,
+      nextPath,
+    })
+  );
+};
 
 /**
  * Initializes the token manager on the given express app
  * @author Gabriel Abrams
  * @param {object} app - express app
- * @param {string} canvasHost - canvas host to use for oauth exchange
  * @param {object} developerCredentials - canvas app developer credentials in
  *   the form { client_id, client_secret }
+ * @param {string} [canvasHost=canvas.instructure.com] - canvas host to use for
+ *   oauth exchange
+ * @param {string} [appName=this app] - the name of the current app
  * @param {string} [launchPath=/launch] - the route to add to the express
  *   app (when a user visits this route, we will attempt to refresh their token
  *   and if we can't, we will prompt them to authorize the tool). We listen on
@@ -27,20 +65,30 @@ const sendRequest = require('./sendRequest.js');
  *   both functions return promises
  * @param {function} [onManualLogin] - a function to call with params (req, res)
  *   after req.logInManually is called and finishes manually logging in
+ * @param {boolean} [simulateLaunchOnAuthorize] - if truthy, simulates an LTI
+ *   launch upon successful authorization (if the user hasn't already launched
+ *   via LTI), essentially allowing users to either launch via LTI or launch
+ *   the tool by visiting launchPath (GET). If falsy, when a user visits
+ *   launchPath and has not launched via LTI, they will be given an error
  */
 module.exports = (config) => {
   // Check if required config are included
   if (
     !config
     || !config.app
-    || !config.canvasHost
     || !config.developerCredentials
   ) {
     throw new CACCLError({
-      message: 'Token manager initialized improperly: at least one required option was not included. We require app, canvasHost, developerCredentials',
+      message: 'Token manager initialized improperly: at least one required option was not included. We require app, developerCredentials',
       code: errorCodes.requiredOptionExcluded,
     });
   }
+
+  // App name
+  const appName = config.appName || 'this app';
+
+  // Initialize canvasHost
+  const canvasHost = config.canvasHost || 'canvas.instructure.com';
 
   // Initialize launchPath
   const launchPath = config.launchPath || '/launch';
@@ -83,7 +131,7 @@ module.exports = (config) => {
       return Promise.resolve(false);
     }
     return sendRequest({
-      host: config.canvasHost,
+      host: canvasHost,
       path: '/login/oauth2/token',
       method: 'POST',
       params: {
@@ -99,19 +147,7 @@ module.exports = (config) => {
         const accessToken = body.access_token;
         const accessTokenExpiry = new Date().getTime() + 3540000;
         // Save credentials
-        req.session.accessToken = accessToken;
-        req.session.accessTokenExpiry = accessTokenExpiry;
-        req.session.refreshToken = refreshToken;
-        return new Promise((resolve) => {
-          req.session.save((err) => {
-            if (err) {
-              // An error occurred. Resolve with false
-              return resolve(false);
-            }
-            // Success! Resolve with true
-            return resolve(true);
-          });
-        });
+        return req.logInManually(accessToken, refreshToken, accessTokenExpiry);
       })
       .catch(() => {
         // An error occurred. Resolve with false
@@ -158,15 +194,22 @@ module.exports = (config) => {
 
   // Step 1: Try to refresh, if not possible, redirect to authorization screen
 
-  config.app.use(launchPath, (req, res, next) => {
-    // Skip if not GET
-    if (req.method !== 'GET') {
-      return next();
-    }
-
+  config.app.get(launchPath, (req, res, next) => {
     // Skip if not step 1
     if (req.query.code && req.query.state) {
       return next();
+    }
+
+    // Skip if choosing course
+    if (req.query.course) {
+      return next();
+    }
+
+    // Only allow auth if LTI launch occurred or we're allowed to simulate
+    // LTI launches
+    if (!req.session.launchInfo && !config.simulateLaunchOnAuthorize) {
+      // Cannot authorize
+      return res.status(403).send(`Please launch ${appName} again via Canvas.`);
     }
 
     // Extract the next path
@@ -196,7 +239,7 @@ module.exports = (config) => {
     return getRefreshTokenPromise
       .then((refreshToken) => {
         // Attempt to refresh
-        return refreshAuthorization(refreshToken);
+        return refreshAuthorization(req, refreshToken);
       })
       .then((refreshSuccessful) => {
         if (refreshSuccessful) {
@@ -204,19 +247,24 @@ module.exports = (config) => {
           return res.redirect(nextPath);
         }
         // Refresh failed. Redirect to start authorization process
-        const authURL = 'https://' + config.canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + launchPath + '&state=' + nextPath;
+        const authURL = 'https://' + canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + launchPath + '&state=' + nextPath;
         return res.redirect(authURL);
       });
   });
 
   // Step 2: Receive code or denial
-  config.app.use(launchPath, (req, res, next) => {
+  config.app.get(launchPath, (req, res, next) => {
     // Skip unless we have a code OR error and a state
     if (
       !req.query
       || !req.query.state
       || (!req.query.code && !req.query.error)
     ) {
+      return next();
+    }
+
+    // Skip if choosing a course
+    if (req.query.course) {
       return next();
     }
 
@@ -243,7 +291,7 @@ module.exports = (config) => {
     // Attempt to trade access token for actual access token
     let launchUserId;
     sendRequest({
-      host: config.canvasHost,
+      host: canvasHost,
       path: '/login/oauth2/token',
       method: 'POST',
       params: {
@@ -265,22 +313,86 @@ module.exports = (config) => {
         // Extract user info
         launchUserId = body.user.id;
 
-        // Save in session
+        // Store in token store:
+        // - if we have a token store
+        // - if not: simulating a launch while we already have the user's
+        //   refresh token
+        if (tokenStore) {
+          if (config.simulateLaunchOnAuthorize && !req.session.launchInfo) {
+            // Simulating a launch. Check if we already have the user's
+            // refresh token. If we do, try to refresh using that refresh token.
+            // If that works, don't save this access token. Just
+            // use it to kill the current authorization login (the one we used
+            // to identify the user) and then perform a refresh using the saved
+            // token. If that doesn't work, overwrite the old refresh token with
+            // our new one.
+
+            // Lookup user's refresh token
+            return tokenStore.get(launchUserId)
+              .then((storedRefreshToken) => {
+                if (!storedRefreshToken) {
+                  // No refresh token
+                  return Promise.resolve(false);
+                }
+                // Attempt to refresh
+                return refreshAuthorization(req, refreshToken);
+              })
+              .then((refreshSuccessful) => {
+                if (refreshSuccessful) {
+                  // Kill the current authorization (the one we used to identify
+                  // the user)
+
+                } else {
+                  // Refresh failed
+                  // - Save current tokens
+                  // - Login using these tokens
+                  return tokenStore.set(launchUserId, refreshToken)
+                    .then(() => {
+                      // Save in session
+                      return req.logInManually(
+                        accessToken,
+                        refreshToken,
+                        accessTokenExpiry
+                      );
+                    });
+                }
+              });
+          }
+
+          // Not simulating a launch. Just save the refresh token and log in
+          return tokenStore.set(launchUserId, refreshToken)
+            .then(() => {
+              return req.logInManually(
+                accessToken,
+                refreshToken,
+                accessTokenExpiry
+              );
+            });
+        }
+
+        // Nothing to save or look up. Just log in and continue
         return req.logInManually(
           accessToken,
           refreshToken,
           accessTokenExpiry
         );
       })
-      .then((tokens) => {
-        // Store in token store (if applicable)
-        if (tokenStore) {
-          return tokenStore.set(launchUserId, tokens.refreshToken);
-        }
-        // Nothing to save. Just continue
-        return Promise.resolve();
-      })
       .then(() => {
+        // If simulating a launch, do that now
+        if (config.simulateLaunchOnAuthorize && !req.session.launchInfo) {
+          // Pull list of courses, ask user to choose a course
+          return req.api.user.self.listCourses({ includeTerm: true })
+            .then((courses) => {
+              return renderCourseChooser({
+                res,
+                launchPath,
+                courses,
+                nextPath,
+              });
+            });
+        }
+
+        // Not simulating a launch
         return res.redirect(nextPath + '?success=true');
       })
       .catch(() => {
@@ -288,10 +400,49 @@ module.exports = (config) => {
       });
   });
 
-  // We use middleware to handle authorization. If we get to the actual route,
-  // we've failed
+  // Step 3: Choose course (only required for simulated launch)
+  config.app.get(launchPath, (req, res, next) => {
+    if (!req.query.course || !req.api) {
+      return next();
+    }
+
+    const courseId = req.query.course;
+    const nextPath = (req.query.next || defaultAuthorizedRedirect);
+
+    // Simulate the launch
+
+    // Get the course information
+    Promise.all([
+      req.api.course.get({ courseId }),
+      req.api.user.self.getProfile(),
+    ])
+      .then(([course, profile]) => {
+        // Create a simulated launch
+        const simulatedLTILaunchBody = genLTILaunch({
+          course,
+          profile,
+          appName,
+          canvasHost,
+        });
+
+        // Parse and save the simulated launch
+        return req._parseLaunch(simulatedLTILaunchBody);
+      })
+      .then(() => {
+        // Simulated launch saved
+
+        // Redirect to final path
+        return res.redirect(nextPath + '?success=true');
+      })
+      .catch((err) => {
+        return res.status(500).send(`Oops! We encountered an error while launching ${appName}. Try starting over. If this error happens again, contact an admin. Error: ${err.message}`);
+      });
+  });
+
+  // We use middleware to handle authorization. If we get to this handler, an
+  // error has occurred
   config.app.get(launchPath, (req, res) => {
-    return res.status(500).send('Oops! Something went wrong during authorization. Please re-launch this app.');
+    return res.status(500).send(`Oops! Something went wrong during authorization. Please re-launch ${appName}.`);
   });
 
   /*------------------------------------------------------------------------*/
