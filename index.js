@@ -189,6 +189,44 @@ module.exports = (config) => {
   });
 
   /*------------------------------------------------------------------------*/
+  /*                          Token Refresh Process                         */
+  /*------------------------------------------------------------------------*/
+
+  autoRefreshRoutes.forEach((autoRefreshRoute) => {
+    // Add middleware to automatically refresh the access token upon expiry
+    config.app.use(autoRefreshRoute, (req, res, next) => {
+      // Check if we have a token
+      if (
+        !req.session
+        || !req.session.accessToken
+        || !req.session.accessTokenExpiry
+        || !req.session.refreshToken
+      ) {
+        // No token. Nothing to refresh
+        return next();
+      }
+
+      // Check if token has expired
+      if (new Date().getTime() < req.session.accessTokenExpiry) {
+        // Not expired yet. Don't need to refresh
+        return next();
+      }
+
+      // Refresh the token
+      refreshAuthorization(req, req.session.refreshToken)
+        .then((refreshSuccessful) => {
+          if (refreshSuccessful) {
+            return next();
+          }
+          throw new Error();
+        })
+        .catch(() => {
+          return res.status(500).send('Internal server error: your Canvas authorization has expired and we could not refresh your credentials.');
+        });
+    });
+  });
+
+  /*------------------------------------------------------------------------*/
   /*                          Authorization Process                         */
   /*------------------------------------------------------------------------*/
 
@@ -223,6 +261,7 @@ module.exports = (config) => {
     let getRefreshTokenPromise;
     if (req.session && req.session.refreshToken) {
       // Refresh token is in session
+      console.log('Refreshing based on refresh token in session', req.session.refreshToken);
       getRefreshTokenPromise = Promise.resolve(req.session.refreshToken);
     } else if (
       tokenStore
@@ -230,9 +269,11 @@ module.exports = (config) => {
       && req.session.currentUserCanvasId
     ) {
       // Look for refresh token in the token store
+      console.log('refreshing based on refresh token ins tore (looking up)');
       getRefreshTokenPromise = tokenStore.get(req.session.currentUserCanvasId);
     } else {
       // Can't refresh! Return null to jump to authorization
+      console.log('not refreshing', !req.session, req.session.currentUserCanvasId, req.session.launchInfo);
       getRefreshTokenPromise = Promise.resolve(null);
     }
     // Use refresh token to refresh, or jump to auth if no refresh token
@@ -402,7 +443,6 @@ module.exports = (config) => {
 
   // Step 3: Choose course (only required for simulated launch)
   config.app.get(launchPath, (req, res, next) => {
-    console.log('got here', req.query, req.api);
     if (!req.query.course || !req.api) {
       return next();
     }
@@ -444,43 +484,5 @@ module.exports = (config) => {
   // error has occurred
   config.app.get(launchPath, (req, res) => {
     return res.status(500).send(`Oops! Something went wrong during authorization. Please re-launch ${appName}.`);
-  });
-
-  /*------------------------------------------------------------------------*/
-  /*                          Token Refresh Process                         */
-  /*------------------------------------------------------------------------*/
-
-  autoRefreshRoutes.forEach((autoRefreshRoute) => {
-    // Add middleware to automatically refresh the access token upon expiry
-    config.app.use(autoRefreshRoute, (req, res, next) => {
-      // Check if we have a token
-      if (
-        !req.session
-        || !req.session.accessToken
-        || !req.session.accessTokenExpiry
-        || !req.session.refreshToken
-      ) {
-        // No token. Nothing to refresh
-        return next();
-      }
-
-      // Check if token has expired
-      if (new Date().getTime() < req.session.accessTokenExpiry) {
-        // Not expired yet. Don't need to refresh
-        return next();
-      }
-
-      // Refresh the token
-      refreshAuthorization(req, req.session.refreshToken)
-        .then((refreshSuccessful) => {
-          if (refreshSuccessful) {
-            return next();
-          }
-          throw new Error();
-        })
-        .catch(() => {
-          return res.status(500).send('Internal server error: your Canvas authorization has expired and we could not refresh your credentials.');
-        });
-    });
   });
 };
