@@ -256,7 +256,7 @@ module.exports = (config) => {
       || req.body.next
       || defaultAuthorizedRedirect
     );
-
+    console.log('session', req.session);
     // Look for a refresh token
     let getRefreshTokenPromise;
     if (req.session && req.session.refreshToken) {
@@ -279,6 +279,8 @@ module.exports = (config) => {
     // Use refresh token to refresh, or jump to auth if no refresh token
     return getRefreshTokenPromise
       .then((refreshToken) => {
+        console.log('Refresh token we got:', refreshToken);
+        console.log(tokenStore._store);
         // Attempt to refresh
         return refreshAuthorization(req, refreshToken);
       })
