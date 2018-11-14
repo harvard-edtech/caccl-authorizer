@@ -402,6 +402,7 @@ module.exports = (config) => {
 
   // Step 3: Choose course (only required for simulated launch)
   config.app.get(launchPath, (req, res, next) => {
+    console.log('got here', req.query, req.api);
     if (!req.query.course || !req.api) {
       return next();
     }
