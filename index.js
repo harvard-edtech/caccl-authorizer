@@ -3,9 +3,10 @@ const path = require('path');
 const ejs = require('ejs');
 
 const CACCLError = require('../caccl-error/index.js'); // TODO: switch to actual library
+const sendRequest = require('../caccl-send-request/index.js'); // TODO: switch to actual library
+
 const MemoryTokenStore = require('./MemoryTokenStore.js');
 const errorCodes = require('./errorCodes.js');
-const sendRequest = require('./sendRequest.js');
 const genLTILaunch = require('./genLTILaunch.js');
 
 // EJS template for course chooser
