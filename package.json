@@ -40,6 +40,8 @@
   },
   "dependencies": {
     "axios": "^0.18.0",
+    "caccl-error": "^1.0.0",
+    "caccl-send-request": "^1.0.0",
     "ejs": "^2.6.1",
     "qs": "^6.5.2"
   }

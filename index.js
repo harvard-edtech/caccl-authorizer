@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const ejs = require('ejs');
 
-const CACCLError = require('../caccl-error/index.js'); // TODO: switch to actual library
-const sendRequest = require('../caccl-send-request/index.js'); // TODO: switch to actual library
+const CACCLError = require('caccl-error');
+const sendRequest = require('caccl-send-request');
 
 const MemoryTokenStore = require('./MemoryTokenStore.js');
 const errorCodes = require('./errorCodes.js');
