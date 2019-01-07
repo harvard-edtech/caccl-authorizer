@@ -285,7 +285,6 @@ module.exports = (config) => {
           return res.redirect(nextPath);
         }
         // Refresh failed. Redirect to start authorization process
-        console.log('Refresh failed! Try actual auth process');
         const authURL = 'https://' + canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + launchPath + '&state=' + nextPath;
         return res.redirect(authURL);
       });
@@ -306,8 +305,6 @@ module.exports = (config) => {
     if (req.query.course) {
       return next();
     }
-
-    console.log('Got code', req.query);
 
     // Parse the response
     const nextPath = req.query.state;
@@ -341,6 +338,7 @@ module.exports = (config) => {
       path: '/login/oauth2/token',
       method: 'POST',
       params: {
+        grant_type: 'authorization_code',
         code,
         client_id: config.developerCredentials.client_id,
         client_secret: config.developerCredentials.client_secret,
