@@ -321,8 +321,13 @@ module.exports = (config) => {
       return res.redirect(nextPath + '?success=false&reason=error');
     }
 
+    // Check if we encountered an internal error
+    if (!code && (error && error === 'unsupported_response_type')) {
+      return res.redirect(nextPath + '?success=false&reason=internal_error');
+    }
+
     // Check if access was denied
-    if (!code || (error && error === 'access_denied')) {
+    if (!code) {
       // Access was denied! Redirect with success=false and message
       return res.redirect(nextPath + '?success=false&reason=denied');
     }

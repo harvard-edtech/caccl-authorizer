@@ -1,3 +1,5 @@
+const randomstring = require('randomstring');
+
 module.exports = (options) => {
   const [last, first] = options.profile.sortable_name.split(', ');
 
@@ -25,6 +27,7 @@ module.exports = (options) => {
   // Create LTI launch body
   const body = {};
 
+  body.oauth_nonce = `${randomstring.generate(48)}${new Date().getTime()}`;
   body.oauth_timestamp = Math.round(new Date().getTime() / 1000);
   body.context_id = options.course.uuid; // Double check that this is correct
   body.context_label = options.course.course_code || 'Current Course Code';
