@@ -232,7 +232,6 @@ module.exports = (config) => {
   /*------------------------------------------------------------------------*/
 
   // Step 1: Try to refresh, if not possible, redirect to authorization screen
-
   config.app.get(launchPath, (req, res, next) => {
     // Skip if not step 1
     if (req.query.code && req.query.state) {
@@ -286,6 +285,7 @@ module.exports = (config) => {
           return res.redirect(nextPath);
         }
         // Refresh failed. Redirect to start authorization process
+        console.log('Refresh failed! Try actual auth process');
         const authURL = 'https://' + canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + launchPath + '&state=' + nextPath;
         return res.redirect(authURL);
       });
@@ -306,6 +306,8 @@ module.exports = (config) => {
     if (req.query.course) {
       return next();
     }
+
+    console.log('Got code', req.query);
 
     // Parse the response
     const nextPath = req.query.state;
@@ -344,6 +346,7 @@ module.exports = (config) => {
         client_secret: config.developerCredentials.client_secret,
         redirect_uri: 'https://' + req.headers.host + launchPath,
       },
+      ignoreSSLIssues: (canvasHost === 'localhost:8088'),
     })
       .then((response) => {
         const { body } = response;
