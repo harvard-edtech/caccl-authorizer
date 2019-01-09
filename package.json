@@ -28,11 +28,11 @@
   "homepage": "https://github.com/harvard-edtech/caccl-token-manager#readme",
   "devDependencies": {
     "body-parser": "^1.18.3",
-    "eslint": "^5.8.0",
+    "eslint": "^5.12.0",
     "eslint-config-airbnb": "^17.1.0",
     "eslint-plugin-import": "^2.14.0",
     "eslint-plugin-jsx-a11y": "^6.1.2",
-    "eslint-plugin-react": "^7.11.1",
+    "eslint-plugin-react": "^7.12.3",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
     "fs": "0.0.1-security",
@@ -43,7 +43,7 @@
     "caccl-error": "^1.0.0",
     "caccl-send-request": "^1.0.7",
     "ejs": "^2.6.1",
-    "qs": "^6.5.2",
+    "qs": "^6.6.0",
     "randomstring": "^1.1.5"
   }
 }
