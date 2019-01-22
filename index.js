@@ -95,7 +95,11 @@ module.exports = (config) => {
   const launchPath = config.launchPath || '/launch';
 
   // Initialize autoRefreshRoutes
-  const autoRefreshRoutes = config.autoRefreshRoutes || ['*'];
+  const autoRefreshRoutes = (
+    config.autoRefreshRoutes === null
+      ? []
+      : config.autoRefreshRoutes || ['*']
+  );
 
   // Initialize the default authorized redirect path
   const defaultAuthorizedRedirect = config.defaultAuthorizedRedirect || '/';
