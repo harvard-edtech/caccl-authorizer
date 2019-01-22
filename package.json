@@ -4,7 +4,7 @@
   "description": "Acquires Canvas tokens through via OAuth, stores refresh tokens, and refreshes access tokens when they expire.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test"
   },
   "repository": {
     "type": "git",
@@ -28,15 +28,21 @@
   "homepage": "https://github.com/harvard-edtech/caccl-token-manager#readme",
   "devDependencies": {
     "body-parser": "^1.18.3",
+    "caccl": "^1.0.37",
+    "caccl-canvas-partial-simulator": "^1.0.8",
+    "cypress": "^3.1.4",
     "eslint": "^5.12.0",
     "eslint-config-airbnb": "^17.1.0",
+    "eslint-plugin-cypress": "^2.2.0",
     "eslint-plugin-import": "^2.14.0",
     "eslint-plugin-jsx-a11y": "^6.1.2",
     "eslint-plugin-react": "^7.12.3",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
     "fs": "0.0.1-security",
-    "https": "^1.0.0"
+    "https": "^1.0.0",
+    "ims-lti": "^3.0.2",
+    "mocha": "^5.2.0"
   },
   "dependencies": {
     "axios": "^0.18.0",
