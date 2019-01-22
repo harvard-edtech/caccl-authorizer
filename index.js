@@ -64,7 +64,7 @@ const renderCourseChooser = (options) => {
  *   storage of refresh tokens, exclude parameter to use memory token store,
  *   or include a custom token store of form { get(key), set(key, val) } where
  *   both functions return promises
- * @param {function} [onManualLogin] - a function to call with params (req, res)
+ * @param {function} [onLogin] - a function to call with params (req, res)
  *   after req.logInManually is called and finishes manually logging in
  * @param {boolean} [simulateLaunchOnAuthorize] - if truthy, simulates an LTI
  *   launch upon successful authorization (if the user hasn't already launched
@@ -146,7 +146,8 @@ module.exports = (config) => {
         // Parse to get token
         const { body } = response;
         const accessToken = body.access_token;
-        const accessTokenExpiry = new Date().getTime() + 3540000;
+        const expiresIn = (body.expires_in * 1000);
+        const accessTokenExpiry = new Date().getTime() + expiresIn;
         // Save credentials
         return req.logInManually(accessToken, refreshToken, accessTokenExpiry);
       })
@@ -168,8 +169,8 @@ module.exports = (config) => {
       req.session.refreshToken = refreshToken;
 
       // Send callback
-      if (config.onManualLogin) {
-        config.onManualLogin(req, res);
+      if (config.onLogin) {
+        config.onLogin(req, res);
       }
 
       // Save session
