@@ -2,8 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const ejs = require('ejs');
 
+const API = require('caccl-api');
 const CACCLError = require('caccl-error');
 const sendRequest = require('caccl-send-request');
+const parseLaunch = require('caccl-lti/parseLaunch');
 
 const MemoryTokenStore = require('./MemoryTokenStore.js');
 const errorCodes = require('./errorCodes.js');
@@ -66,6 +68,9 @@ const renderCourseChooser = (options) => {
  *   both functions return promises
  * @param {function} [onLogin] - a function to call with params (req, res)
  *   after req.logInManually is called and finishes manually logging in
+ * @param {boolean} [allowAuthorizationWithoutLaunch] - if true, allows user to
+ *   be authorized even without a launch (when no LTI launch occurred and
+ *   simulateLaunchOnAuthorize is false)
  * @param {boolean} [simulateLaunchOnAuthorize] - if truthy, simulates an LTI
  *   launch upon successful authorization (if the user hasn't already launched
  *   via LTI), essentially allowing users to either launch via LTI or launch
@@ -205,7 +210,6 @@ module.exports = (config) => {
       if (
         !req.session
         || !req.session.accessToken
-        || !req.session.accessTokenExpiry
         || !req.session.refreshToken
       ) {
         // No token. Nothing to refresh
@@ -213,7 +217,10 @@ module.exports = (config) => {
       }
 
       // Check if token has expired
-      if (new Date().getTime() < req.session.accessTokenExpiry) {
+      if (
+        req.session.accessTokenExpiry
+        && new Date().getTime() < req.session.accessTokenExpiry
+      ) {
         // Not expired yet. Don't need to refresh
         return next();
       }
@@ -238,6 +245,11 @@ module.exports = (config) => {
 
   // Step 1: Try to refresh, if not possible, redirect to authorization screen
   config.app.get(launchPath, (req, res, next) => {
+    if (!req.session) {
+      // No session! Cannot authorize without session
+      return res.status(403).send('Internal error: cannot authorize without express-session initialized on the app.');
+    }
+
     // Skip if not step 1
     if (req.query.code && req.query.state) {
       return next();
@@ -250,9 +262,18 @@ module.exports = (config) => {
 
     // Only allow auth if LTI launch occurred or we're allowed to simulate
     // LTI launches
-    if (!req.session.launchInfo && !config.simulateLaunchOnAuthorize) {
+    const launchOccurred = (
+      req.session
+      && req.session.launchInfo
+      && Object.keys(req.session.launchInfo).length > 0
+    );
+    if (
+      !launchOccurred
+      && !config.simulateLaunchOnAuthorize
+      && !config.allowAuthorizationWithoutLaunch
+    ) {
       // Cannot authorize
-      return res.status(403).send(`Please launch ${appName} again via Canvas.`);
+      return res.status(403).send(`Please launch ${appName} via Canvas.`);
     }
 
     // Extract the next path
@@ -338,6 +359,7 @@ module.exports = (config) => {
 
     // Attempt to trade access token for actual access token
     let launchUserId;
+    let accessToken;
     sendRequest({
       host: canvasHost,
       path: '/login/oauth2/token',
@@ -354,8 +376,14 @@ module.exports = (config) => {
       .then((response) => {
         const { body } = response;
 
+        // Detect invalid client_secret error
+        if (body.error && body.error === 'invalid_client') {
+          res.redirect(nextPath + '?success=false&reason=invalid_client');
+          throw new Error('break');
+        }
+
         // Extract token
-        const accessToken = body.access_token;
+        accessToken = body.access_token;
         const refreshToken = body.refresh_token;
         const expiresInMs = (body.expires_in * 0.99 * 1000);
         const accessTokenExpiry = new Date().getTime() + expiresInMs;
@@ -430,8 +458,15 @@ module.exports = (config) => {
       .then(() => {
         // If simulating a launch, do that now
         if (config.simulateLaunchOnAuthorize && !req.session.launchInfo) {
+          // Get API
+          const api = new API({
+            accessToken,
+            canvasHost,
+            cacheType: null,
+          });
+
           // Pull list of courses, ask user to choose a course
-          return req.api.user.self.listCourses({ includeTerm: true })
+          return api.user.self.listCourses({ includeTerm: true })
             .then((courses) => {
               return renderCourseChooser({
                 res,
@@ -445,26 +480,40 @@ module.exports = (config) => {
         // Not simulating a launch
         return res.redirect(nextPath + '?success=true');
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err.message === 'break') {
+          return;
+        }
         return res.redirect(nextPath + '?success=false&reason=error');
       });
   });
 
   // Step 3: Choose course (only required for simulated launch)
   config.app.get(launchPath, (req, res, next) => {
-    if (!req.query.course || !req.api) {
+    if (
+      !req.query.course
+      || !req.session
+      || !req.session.accessToken
+    ) {
       return next();
     }
 
     const courseId = req.query.course;
     const nextPath = (req.query.next || defaultAuthorizedRedirect);
 
+    // Create API
+    const api = new API({
+      canvasHost,
+      accessToken: req.session.accessToken,
+      cacheType: null,
+    });
+
     // Simulate the launch
 
     // Get the course information
     Promise.all([
-      req.api.course.get({ courseId }),
-      req.api.user.self.getProfile(),
+      api.course.get({ courseId }),
+      api.user.self.getProfile(),
     ])
       .then(([course, profile]) => {
         // Create a simulated launch
@@ -476,7 +525,7 @@ module.exports = (config) => {
         });
 
         // Parse and save the simulated launch
-        return req._parseLaunch(simulatedLTILaunchBody);
+        return parseLaunch(simulatedLTILaunchBody, req);
       })
       .then(() => {
         // Simulated launch saved

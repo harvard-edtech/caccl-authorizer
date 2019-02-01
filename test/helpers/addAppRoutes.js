@@ -1,4 +1,7 @@
-// const createAppCanvasPair = require('./createAppCanvasPair');
+const API = require('caccl-api');
+
+// Get test user's name
+const { name, canvasHost } = require('../devEnvironment');
 
 module.exports = (app, config) => {
   const {
@@ -7,28 +10,89 @@ module.exports = (app, config) => {
     course, // Canvas course object for test course
     isValid, // function that checks if a launch request is valid (ret: promise)
     nonceValid, // function that checks if a nonce is valid
-    createAppCanvasPair,
+    getTimeSinceOnLogin,
   } = config;
 
-  // Track onLogin calls
-  let lastOnLoginCall;
-  const onLogin = () => {
-    lastOnLoginCall = new Date().getTime();
-  };
   app.get('/onlogininlast10s', (req, res) => {
-    if (!lastOnLoginCall) {
-      return res.send(false);
+    return res.json({
+      elapsed: getTimeSinceOnLogin(),
+    });
+  });
+
+  // Relay launch info
+  app.get('/launchinfo', (req, res) => {
+    if (!req.session || !req.session.launchInfo) {
+      return res.json({});
     }
-    const elapsedMS = new Date().getTime() - lastOnLoginCall;
-    return res.send((elapsedMS / 1000) <= 10);
+    return res.json(req.session.launchInfo);
   });
 
   // Login manually
   app.get('/loginManually', (req, res) => {
     req.loginManually('asdf', 'asdf', 'asdf')
       .then(() => {
-        return res.send('true');
+        return res.json({ success: true });
       });
+  });
+
+  // Verify that API is working
+  app.get('/withapi/verifyapi', async (req, res) => {
+    // Make sure we have the correct session param
+    if (
+      !req.session
+      || !req.session.accessToken
+      || !req.session.refreshToken
+      || !req.session.accessTokenExpiry
+    ) {
+      return res.json({
+        success: false,
+        message: `Required: accessToken, refreshToken, and accessTokenExpiry in session. Instead, seassion was: ${req.session}`,
+      });
+    }
+
+    // Make sure token hasn't expired
+    const elapsedSinceExpiry = (
+      req.session.accessTokenExpiry < new Date().getTime()
+    );
+    if (elapsedSinceExpiry > 0) {
+      return res.json({
+        success: false,
+        message: `Access token has expired and wasn't automatically refreshed! Expired ${elapsedSinceExpiry}ms ago.`,
+      });
+    }
+
+    // Try to use the access token to get user's profile
+    const api = new API({
+      canvasHost,
+      accessToken: req.session.accessToken,
+    });
+    // Attempt to get user's profile
+    try {
+      const profile = await api.user.self.getProfile();
+      if (profile.name === name) {
+        return res.json({
+          success: true,
+        });
+      }
+      return res.json({
+        success: false,
+        message: `Profile name didn't match. Expected "${name}" but got "${profile.name}"`,
+      });
+    } catch (err) {
+      return res.json({
+        success: false,
+        message: `An error occurred while trying to get the user profile: ${err.message}`,
+      });
+    }
+  });
+
+  // Indicate to authorizer that launch occurred
+  app.get('/addlaunchinfo', (req, res) => {
+    req.session.launchInfo = {
+      dummyInfo: true,
+    };
+    req.session.save();
+    return res.json({ success: true });
   });
 
   // Return test course title
@@ -36,33 +100,9 @@ module.exports = (app, config) => {
     return res.send(course.name);
   });
 
-  // Page to show that server is alive
-  app.get('/alive', (req, res) => {
-    return res.send('true');
-  });
-
   // Home
   app.get('/', (req, res) => {
     return res.send('home');
-  });
-
-  // Route to change setup
-  app.get('/changesetup', (req, res) => {
-    const invalidClientId = req.query.invalid_client_id;
-    const invalidClientSecret = req.query.invalid_client_secret;
-    const simulateLaunchOnAuthorize = req.query.simulate_launch_on_authorize;
-    const defaultAuthorizedRedirect = req.query.default_authorized_redirect;
-
-    res.send('true');
-
-    createAppCanvasPair({
-      invalidClientId,
-      invalidClientSecret,
-      simulateLaunchOnAuthorize,
-      defaultAuthorizedRedirect,
-      onLogin,
-      launchPath: req.query.launch_path,
-    });
   });
 
   // Just another route
@@ -78,29 +118,10 @@ module.exports = (app, config) => {
     return res.send('Certificate accepted!');
   });
 
-  // Refreshed app routes that make sure the api is installed
-  const refreshedHandler = (req, res) => {
-    if (!req.api) {
-      return res.send('false');
-    }
-    return req.api.user.self.getProfile()
-      .then((profile) => {
-        if (profile.name && profile.id) {
-          return res.send('true');
-        }
-        return res.send('Profile object was invalid');
-      })
-      .catch((err) => {
-        return res.send(err.message);
-      });
-  };
-  app.get('/refreshed/first', refreshedHandler);
-  app.get('/refreshed/second', refreshedHandler);
-
   // Route that kills the session
   app.get('/logout', (req, res) => {
     req.session.destroy((err) => {
-      return res.send(!err);
+      return res.json({ success: !err });
     });
   });
 
@@ -114,7 +135,7 @@ module.exports = (app, config) => {
 
     // Save session
     req.session.save((err) => {
-      return res.send(!err);
+      return res.json({ success: !err });
     });
   });
 

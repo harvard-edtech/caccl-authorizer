@@ -2,6 +2,7 @@ const initCACCL = require('caccl/script');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+const session = require('express-session');
 const bodyParser = require('body-parser');
 const https = require('https');
 const lti = require('ims-lti');
@@ -119,6 +120,9 @@ const killServers = () => {
 
   canvasServer.close();
   appServer.close();
+
+  canvasServer = null;
+  appServer = null;
 };
 
 /*------------------------------------------------------------------------*/
@@ -133,13 +137,16 @@ const killServers = () => {
  *   an invalid client_secret
  * @param {boolean} [simulateLaunchOnAuthorize] - if true, caccl-authorizer is
  *   set to simulate an LTI launch on authorize
- * @param {function} [onLogin] - a function to call when login occurs
  * @param {string} [launchPath=/launch] - the launchPath to use when
  *   initializing caccl-authorizer and test app
  * @param {string} [defaultAuthorizedRedirect='/'] - the
  *   default route to visit after authorization is complete (you can override
  *   this value for a specific authorization call by including query.next or
  *   body.next, a path/url to visit after completion)
+ * @param {boolean} [allowAuthorizationWithoutLaunch] - if true, allows user to
+ *   be authorized even without a launch (when no LTI launch occurred and
+ *   simulateLaunchOnAuthorize is false)
+ * @param {boolean} [noSession] - if true, express session will not be enabled
  * @return {Promise} Promise that resolves when the app and Canvas are set up
  */
 module.exports = (config = {}) => {
@@ -184,6 +191,28 @@ module.exports = (config = {}) => {
         limit: '5mb',
       }));
 
+      if (!config.noSession) {
+        // Create session secret
+        const sessionSecret = `test-app-session-${new Date().getTime()}`;
+
+        // Create cookie name
+        const cookieName = `test-app-cookie-${new Date().getTime()}-53901`;
+
+        // Set session duration to 6 hours
+        const sessionDurationMillis = ((config.sessionMins || 360) * 60000);
+
+        // Add session
+        app.use(session({
+          cookie: {
+            maxAge: sessionDurationMillis,
+          },
+          resave: true,
+          name: cookieName,
+          saveUninitialized: false,
+          secret: sessionSecret,
+        }));
+      }
+
       // Allow connections from localhost
       app.use((req, res, next) => {
         res.header('Access-Control-Allow-Origin', 'localhost');
@@ -223,14 +252,14 @@ module.exports = (config = {}) => {
         return !seen;
       };
 
-      addAppRoutes(app, {
-        launchPath,
-        course,
-        user,
-        isValid,
-        nonceValid,
-        createAppCanvasPair: module.exports,
-      });
+      // Track onLogin calls
+      let lastOnLoginCall;
+      const onLogin = () => {
+        lastOnLoginCall = new Date().getTime();
+      };
+      const getTimeSinceOnLogin = () => {
+        return new Date().getTime() - lastOnLoginCall;
+      };
 
       /*----------------------------------------------------------------------*/
       /*                      Initialize Canvas Authorizer                    */
@@ -249,16 +278,29 @@ module.exports = (config = {}) => {
             : 'client_secret'
         ),
       };
-
       initAuthorizer({
         app,
         launchPath,
         developerCredentials,
+        onLogin,
+        allowAuthorizationWithoutLaunch: config.allowAuthorizationWithoutLaunch,
         defaultAuthorizedRedirect: config.defaultAuthorizedRedirect,
-        onLogin: config.onLogin,
         simulateLaunchOnAuthorize: config.simulateLaunchOnAuthorize,
         canvasHost: 'localhost:8088',
-        autoRefreshRoutes: ['/refreshed*'],
+        autoRefreshRoutes: ['/withapi*'],
+      });
+
+      /*----------------------------------------------------------------------*/
+      /*                            Add routes to app                         */
+      /*----------------------------------------------------------------------*/
+
+      addAppRoutes(app, {
+        launchPath,
+        course,
+        user,
+        isValid,
+        nonceValid,
+        getTimeSinceOnLogin,
       });
 
       /*----------------------------------------------------------------------*/
@@ -273,6 +315,7 @@ module.exports = (config = {}) => {
           simInitialized = true;
           checkIfReady();
         },
+        dontPrint: true,
       });
       canvasServer = server;
     });

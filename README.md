@@ -9,7 +9,7 @@ Your LTI app accepts launches at your `launchPath` via POST. `caccl-authorizer` 
 **A**pp  
 **C**omplete  
 **C**onnection  
-**L**ibrary 
+**L**ibrary
 
 ## Quickstart
 
@@ -28,13 +28,17 @@ initAuthorization({
     },
     canvasHost: /* your canvas host name */,
 });
+
+// TODO: add routes to express app
 ```
 
-To authorize a user, redirect them to the `launchPath` via GET. `caccl-authorizer` will handle the entire authorization process then redirect them to the `defaultAuthorizedRedirect` path. After authorization, the user's access token will appear in their session: `req.session.accessToken`. 
+To authorize a user, redirect them to the `launchPath` via GET. `caccl-authorizer` will handle the entire authorization process then redirect them to the `defaultAuthorizedRedirect` path. After authorization, the user's access token will appear in their session: `req.session.accessToken`.
+
+**Important:** you must initialize `caccl-authorizer` before adding refreshed routes (see `autoRefreshRoutes` below).
 
 ## Configuration Options
 
-When initializing `caccl-api`, you can pass in many different configuration options to customize CACCL's behavior or turn on/off certain functionality.
+When initializing `caccl-authorizer`, you can pass in many different configuration options to customize CACCL's behavior or turn on/off certain functionality.
 
 **Note:** configuration options are _optional_ unless otherwise stated
 
@@ -47,6 +51,7 @@ Config Option | Type | Description | Default/Required
 app | express app | the server express app with express-session enabled | **required**
 developerCredentials | object | canvas app developer credentials in the form: `{ client_id, client_secret }` | **required**
 canvasHost | string | canvas host to use for oauth exchange | canvas.instructure.com
+allowAuthorizationWithoutLaunch | boolean | if true, allows user to be authorized even without a launch (when no LTI launch occurred and simulateLaunchOnAuthorize is false) | false
 
 ### App Information
 
@@ -64,7 +69,7 @@ Options that change how authorization functions. By default, when authorization 
 Config Option | Type | Description | Default
 :--- | :--- | :--- | :---
 defaultAuthorizedRedirect | string | the default route to visit after authorization is complete (you can override this for a specific authorization call by including `query.next`. example: `/launch?next=/profile`) | "/"
-autoRefreshRoutes | string[] | list of routes to automatically refresh the access token for (if the access token has expired) | `["*"]`
+autoRefreshRoutes | string[] | list of routes to automatically refresh the access token for (if the access token has expired), these routes must be added _after_ `caccl-authorizer` has been initialized | `["*"]`
 tokenStore | [TokenStore](https://github.com/harvard-edtech/caccl-authorizer/blob/master/docs/TokenStore.md) | null to turn off storage of refresh tokens, exclude to use memory token store, or include a custom token store (see [these docs](https://github.com/harvard-edtech/caccl-authorizer/blob/master/docs/TokenStore.md)) | memory store
 
 **Tip:** we recommend setting `autoRefreshRoutes` to all the paths where you will need access to the Canvas API. Then, the accessToken will never have expired when the user visits one of those paths.
@@ -73,7 +78,7 @@ tokenStore | [TokenStore](https://github.com/harvard-edtech/caccl-authorizer/blo
 
 Enabling this feature allows users to visit the `launchPath` (GET), go through the authorization process, and then `caccl-authorizer` simulates an LTI launch. This essentially makes it possible for users to launch your app without visiting Canvas, simply by visiting the `launchPath`.
 
-To enable this feature, 
+To enable this feature,
 
 Config Option | Type | Description | Default
 :--- | :--- | :--- | :---
