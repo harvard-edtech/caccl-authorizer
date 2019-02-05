@@ -31,7 +31,7 @@
     "body-parser": "^1.18.3",
     "caccl": "^1.0.42",
     "caccl-canvas-partial-simulator": "^1.0.9",
-    "dce-selenium": "^1.0.14",
+    "dce-selenium": "^1.0.16",
     "eslint": "^5.13.0",
     "eslint-config-airbnb": "^17.1.0",
     "eslint-plugin-cypress": "^2.2.0",

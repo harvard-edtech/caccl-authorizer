@@ -9,6 +9,11 @@ const createAppCanvasPair = require('./helpers/createAppCanvasPair');
 /*------------------------------------------------------------------------*/
 /*                               Mocha Tests                              */
 /*------------------------------------------------------------------------*/
+const startTime = new Date();
+const replaceAll = (str, search, replacement) => {
+  return str.replace(new RegExp(search, 'g'), replacement);
+};
+const timestamp = `${startTime.toLocaleDateString()} ${replaceAll(startTime.toLocaleTimeString(), ':', '-')}`;
 
 const runTests = async (folderName) => {
   // Print
@@ -26,6 +31,7 @@ const runTests = async (folderName) => {
   // Start tests
   await runSelenium({
     subfolder: folderName,
+    snapshotTitle: timestamp + '/' + folderName,
   });
 };
 

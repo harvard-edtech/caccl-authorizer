@@ -10,12 +10,12 @@ module.exports = (app, config) => {
     course, // Canvas course object for test course
     isValid, // function that checks if a launch request is valid (ret: promise)
     nonceValid, // function that checks if a nonce is valid
-    getTimeSinceOnLogin,
+    getOnLoginTimestamp,
   } = config;
 
-  app.get('/onlogininlast10s', (req, res) => {
+  app.get('/timesinceonlogin', (req, res) => {
     return res.json({
-      elapsed: getTimeSinceOnLogin(),
+      timestamp: getOnLoginTimestamp(),
     });
   });
 
@@ -127,15 +127,19 @@ module.exports = (app, config) => {
 
   // Route that immediately expires the current access token
   app.get('/expirenow', (req, res) => {
-    // Remove access token:
-    req.session.accessToken = null;
-
     // Set as expired (expiration is now):
     req.session.accessTokenExpiry = new Date().getTime();
 
     // Save session
     req.session.save((err) => {
       return res.json({ success: !err });
+    });
+  });
+
+  // Check how long till token expires
+  app.get('/tokentimeleft', (req, res) => {
+    return res.json({
+      ms: req.session.accessTokenExpiry - new Date().getTime(),
     });
   });
 

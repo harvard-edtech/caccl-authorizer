@@ -257,8 +257,8 @@ module.exports = (config = {}) => {
       const onLogin = () => {
         lastOnLoginCall = new Date().getTime();
       };
-      const getTimeSinceOnLogin = () => {
-        return new Date().getTime() - lastOnLoginCall;
+      const getOnLoginTimestamp = () => {
+        return lastOnLoginCall;
       };
 
       /*----------------------------------------------------------------------*/
@@ -300,7 +300,7 @@ module.exports = (config = {}) => {
         user,
         isValid,
         nonceValid,
-        getTimeSinceOnLogin,
+        getOnLoginTimestamp,
       });
 
       /*----------------------------------------------------------------------*/
