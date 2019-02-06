@@ -1,6 +1,6 @@
 require('dce-selenium');
 
-itd('Valid - Launch Optional - Accepts valid launch requests without launch', async function (driver) {
+itS('Valid - Launch Optional - Accepts valid launch requests without launch', async function (driver) {
   // Visit /launch and get redirect to auth page
   await driver.visit(
     'https://localhost:8089/launch',
@@ -17,7 +17,7 @@ itd('Valid - Launch Optional - Accepts valid launch requests without launch', as
   await driver.checkForSuccess('https://localhost:8089/withapi/verifyapi');
 });
 
-itd('Valid - Launch Optional - Refreshes authorization on successive launches', async function (driver) {
+itS('Valid - Launch Optional - Refreshes authorization on successive launches', async function (driver) {
   // --- Initial launch ---
   driver.log('Initial launch:');
 
@@ -46,7 +46,7 @@ itd('Valid - Launch Optional - Refreshes authorization on successive launches', 
   );
 });
 
-itd('Valid - Launch Optional - Accepts valid launch requests with launch', async function (driver) {
+itS('Valid - Launch Optional - Accepts valid launch requests with launch', async function (driver) {
   // Pretend that the app was launched
   await driver.checkForSuccess('https://localhost:8089/addlaunchinfo');
 

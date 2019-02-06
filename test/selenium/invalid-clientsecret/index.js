@@ -1,6 +1,6 @@
 require('dce-selenium');
 
-itd('Invalid Client Secret - Rejects launch request', async function (driver) {
+itS('Invalid Client Secret - Rejects launch request', async function (driver) {
   // Pretend that the app was launched
   await driver.checkForSuccess('https://localhost:8089/addlaunchinfo');
 

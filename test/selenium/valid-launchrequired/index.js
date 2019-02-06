@@ -1,6 +1,6 @@
 require('dce-selenium');
 
-itd('Valid - Launch Required - Rejects valid launch requests without launch', async function (driver) {
+itS('Valid - Launch Required - Rejects valid launch requests without launch', async function (driver) {
   // Visit /launch and get redirect to auth page
   await driver.visit('https://localhost:8089/launch');
 
@@ -10,7 +10,7 @@ itd('Valid - Launch Required - Rejects valid launch requests without launch', as
   }
 });
 
-itd('Valid - Launch Required - Accepts valid launch requests with launch', async function (driver) {
+itS('Valid - Launch Required - Accepts valid launch requests with launch', async function (driver) {
   // Pretend that the app was launched
   await driver.checkForSuccess('https://localhost:8089/addlaunchinfo');
 

@@ -1,6 +1,6 @@
 require('dce-selenium');
 
-itd('Valid - Custom Launch Path - Accepts valid launch requests', async function (driver) {
+itS('Valid - Custom Launch Path - Accepts valid launch requests', async function (driver) {
   // Pretend that the app was launched
   await driver.checkForSuccess('https://localhost:8089/addlaunchinfo');
 

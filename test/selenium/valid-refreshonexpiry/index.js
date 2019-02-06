@@ -1,6 +1,6 @@
 require('dce-selenium');
 
-itd('Valid - Refresh on Expiry - Refreshes on expiration', async function (driver) {
+itS('Valid - Refresh on Expiry - Refreshes on expiration', async function (driver) {
   // Successfully launch the app
 
   // Pretend that the app was launched

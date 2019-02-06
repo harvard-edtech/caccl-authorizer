@@ -8,7 +8,7 @@ const {
   canvasHost,
 } = require('../../devEnvironment');
 
-itd('Valid - Sim Launch - Does not simulate launch if launch already occurred', async function (driver) {
+itS('Valid - Sim Launch - Does not simulate launch if launch already occurred', async function (driver) {
   // Pretend that the app was launched
   await driver.checkForSuccess('https://localhost:8089/addlaunchinfo');
 
@@ -28,7 +28,7 @@ itd('Valid - Sim Launch - Does not simulate launch if launch already occurred', 
   await driver.checkForSuccess('https://localhost:8089/withapi/verifyapi');
 });
 
-itd('Valid - Sim Launch - Simulates launch with course picker', async function (driver) {
+itS('Valid - Sim Launch - Simulates launch with course picker', async function (driver) {
   // Visit /launch and get redirect to auth page
   await driver.visit(
     'https://localhost:8089/launch',

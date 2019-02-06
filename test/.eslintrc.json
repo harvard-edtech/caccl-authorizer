@@ -7,7 +7,7 @@
     "func-names": ["error","never"]
   },
   "globals": {
-    "itd": false,
+    "itS": false,
     "driver": false
   }
 }

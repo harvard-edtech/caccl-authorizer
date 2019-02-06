@@ -1,6 +1,6 @@
 require('dce-selenium');
 
-itd('Valid - onLogin - Calls onLogin upon login', async function (driver) {
+itS('Valid - onLogin - Calls onLogin upon login', async function (driver) {
   // Successfully launch the app
 
   // Pretend that the app was launched
