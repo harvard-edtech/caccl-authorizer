@@ -6,15 +6,27 @@ module.exports = (options) => {
   // Prep roles
   const extRoles = [];
   const roles = [];
-  (options.course.enrollments || []).forEach((enrollment) => {
-    if (enrollment.type === 'student') {
+  if (Array.isArray(options.course.enrollments)) {
+    const hasStudentEnrollment = (
+      options.course.enrollments.some((enrollment) => {
+        return enrollment.type === 'student';
+      })
+    );
+    if (hasStudentEnrollment) {
       // Ext roles
       extRoles.push('urn:lti:instrole:ims/lis/Student');
       extRoles.push('urn:lti:role:ims/lis/Learner');
       extRoles.push('urn:lti:sysrole:ims/lis/User');
       // Depricated roles
       roles.push('Learner');
-    } else if (enrollment.type === 'teacher') {
+    }
+
+    const hasTeacherEnrollment = (
+      options.course.enrollments.some((enrollment) => {
+        return enrollment.type === 'teacher';
+      })
+    );
+    if (hasTeacherEnrollment) {
       // Ext roles
       extRoles.push('urn:lti:instrole:ims/lis/Instructor');
       extRoles.push('urn:lti:role:ims/lis/Instructor');
@@ -22,13 +34,13 @@ module.exports = (options) => {
       // Depricated roles
       roles.push('Instructor');
     }
-  });
+  }
 
   // Create LTI launch body
   const body = {};
 
-  body.oauth_nonce = `${randomstring.generate(48)}${new Date().getTime()}`;
-  body.oauth_timestamp = Math.round(new Date().getTime() / 1000);
+  body.oauth_nonce = `${randomstring.generate(48)}${Date.now()}`;
+  body.oauth_timestamp = Math.round(Date.now() / 1000);
   body.context_id = options.course.uuid; // Double check that this is correct
   body.context_label = options.course.course_code || 'Current Course Code';
   body.context_title = options.course.name || 'Current Course';

@@ -13,7 +13,7 @@ itS('Valid - onLogin - Calls onLogin upon login', async function (driver) {
   );
 
   // Click "Authorize"
-  const beforeLoginTimestamp = new Date().getTime();
+  const beforeLoginTimestamp = Date.now();
   await driver.clickByContents('Authorize', 'a');
   driver.log('enforce launch was successful.');
   await driver.waitForLocation('https://localhost:8089/?success=true');
