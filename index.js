@@ -119,11 +119,22 @@ module.exports = (config) => {
     tokenStore = new MemoryTokenStore();
   } else {
     // Custom token store included
-    // Validate its functionality
+    // Validate its functionality:
+    // Make sure get/set functions were included
     if (!config.tokenStore.get || !config.tokenStore.set) {
       throw new CACCLError({
         message: 'Token manager initialized improperly: your custom token store is invalid. It must include a get and a set function.',
         code: errorCodes.tokenStoreInvalidWrongFunctions,
+      });
+    }
+    // Make sure get/set are functions
+    if (
+      !(config.tokenStore.get instanceof Function)
+      || !(config.tokenStore.set instanceof Function)
+    ) {
+      throw new CACCLError({
+        message: 'Token manager initialized improperly: your custom token store is invalid. The token store\'s get and set properties must be functions.',
+        code: errorCodes.tokenStoreInvalidNotFunctions,
       });
     }
     // Custom token store valid
@@ -156,7 +167,7 @@ module.exports = (config) => {
         const { body } = response;
         const accessToken = body.access_token;
         const expiresIn = (body.expires_in * 1000);
-        const accessTokenExpiry = new Date().getTime() + expiresIn;
+        const accessTokenExpiry = Date.now() + expiresIn;
         // Save credentials
         return req.logInManually(accessToken, refreshToken, accessTokenExpiry);
       })
@@ -219,7 +230,7 @@ module.exports = (config) => {
       // Check if token has expired
       if (
         req.session.accessTokenExpiry
-        && new Date().getTime() < req.session.accessTokenExpiry
+        && Date.now() < req.session.accessTokenExpiry
       ) {
         // Not expired yet. Don't need to refresh
         return next();
@@ -386,7 +397,7 @@ module.exports = (config) => {
         accessToken = body.access_token;
         const refreshToken = body.refresh_token;
         const expiresInMs = (body.expires_in * 0.99 * 1000);
-        const accessTokenExpiry = new Date().getTime() + expiresInMs;
+        const accessTokenExpiry = Date.now() + expiresInMs;
 
         // Extract user info
         launchUserId = body.user.id;

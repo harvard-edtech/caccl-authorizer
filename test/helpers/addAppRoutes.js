@@ -52,7 +52,7 @@ module.exports = (app, config) => {
 
     // Make sure token hasn't expired
     const elapsedSinceExpiry = (
-      req.session.accessTokenExpiry < new Date().getTime()
+      req.session.accessTokenExpiry < Date.now()
     );
     if (elapsedSinceExpiry > 0) {
       return res.json({
@@ -128,7 +128,7 @@ module.exports = (app, config) => {
   // Route that immediately expires the current access token
   app.get('/expirenow', (req, res) => {
     // Set as expired (expiration is now):
-    req.session.accessTokenExpiry = new Date().getTime();
+    req.session.accessTokenExpiry = Date.now();
 
     // Save session
     req.session.save((err) => {
@@ -139,7 +139,7 @@ module.exports = (app, config) => {
   // Check how long till token expires
   app.get('/tokentimeleft', (req, res) => {
     return res.json({
-      ms: req.session.accessTokenExpiry - new Date().getTime(),
+      ms: req.session.accessTokenExpiry - Date.now(),
     });
   });
 
@@ -184,7 +184,7 @@ module.exports = (app, config) => {
 
         // Timestamp
         const age = (
-          (new Date().getTime() / 1000)
+          (Date.now() / 1000)
           - (req.body.oauth_timestamp || 0)
         );
         pass = (age > -1 && age <= 5);

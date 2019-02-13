@@ -6,24 +6,24 @@
   courses.forEach((course) => {
     // Link
     course.link = `${launchPath}?course=${course.id}&next=${nextPath}`;
+
     // Privileges
-    let isTeacher;
-    let isTA;
-    (course.enrollments || []).forEach((enrollment) => {
-      if (enrollment.type === 'teacher') {
-        isTeacher = true;
+    if (Array.isArray(course.enrollments)) {
+      const isTeacher = course.enrollments.some((enrollment) => {
+        return enrollment.type === 'teacher';
+      });
+      if (isTeacher) {
+        course.privileges = 'teacher';
+      } else {
+        const isTA = course.enrollments.some((enrollment) => {
+          return enrollment.type === 'ta';
+        });
+        if (isTA) {
+          course.privileges = 'teaching assistant';
+        }
       }
-      if (enrollment.type === 'ta') {
-        isTA = true;
-      }
-    });
-    let privileges;
-    if (isTeacher) {
-      privileges = 'teacher';
-    } else if (isTA) {
-      privileges = 'teaching assistant';
     }
-    course.privileges = privileges;
+
     // Term
     if (!terms[course.term.name]) {
       terms[course.term.name] = [];

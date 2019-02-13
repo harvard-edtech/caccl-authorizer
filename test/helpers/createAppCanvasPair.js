@@ -193,10 +193,10 @@ module.exports = (config = {}) => {
 
       if (!config.noSession) {
         // Create session secret
-        const sessionSecret = `test-app-session-${new Date().getTime()}`;
+        const sessionSecret = `test-app-session-${Date.now()}`;
 
         // Create cookie name
-        const cookieName = `test-app-cookie-${new Date().getTime()}-53901`;
+        const cookieName = `test-app-cookie-${Date.now()}-53901`;
 
         // Set session duration to 6 hours
         const sessionDurationMillis = ((config.sessionMins || 360) * 60000);
@@ -255,7 +255,7 @@ module.exports = (config = {}) => {
       // Track onLogin calls
       let lastOnLoginCall;
       const onLogin = () => {
-        lastOnLoginCall = new Date().getTime();
+        lastOnLoginCall = Date.now();
       };
       const getOnLoginTimestamp = () => {
         return lastOnLoginCall;
