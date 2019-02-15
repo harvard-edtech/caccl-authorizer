@@ -1,5 +1,9 @@
 const randomstring = require('randomstring');
 
+const replaceAll = (str, search, replacement) => {
+  return str.replace(new RegExp(search, 'g'), replacement);
+};
+
 module.exports = (options) => {
   const [last, first] = options.profile.sortable_name.split(', ');
 
@@ -42,8 +46,16 @@ module.exports = (options) => {
   body.oauth_nonce = `${randomstring.generate(48)}${Date.now()}`;
   body.oauth_timestamp = Math.round(Date.now() / 1000);
   body.context_id = options.course.uuid; // Double check that this is correct
-  body.context_label = options.course.course_code || 'Current Course Code';
-  body.context_title = options.course.name || 'Current Course';
+  body.context_label = replaceAll(
+    options.course.course_code || 'Current Course Code',
+    '"',
+    ''
+  );
+  body.context_title = replaceAll(
+    options.course.name || 'Current Course',
+    '"',
+    ''
+  );
   body.custom_canvas_api_domain = options.canvasHost || 'canvas.instructure.com';
   body.custom_canvas_course_id = options.course.id;
   body.custom_canvas_enrollment_state = 'active';
