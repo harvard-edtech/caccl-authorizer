@@ -382,7 +382,7 @@ module.exports = (config) => {
         client_secret: config.developerCredentials.client_secret,
         redirect_uri: 'https://' + req.headers.host + launchPath,
       },
-      ignoreSSLIssues: (canvasHost === 'localhost:8088'),
+      ignoreSSLIssues: canvasHost.startsWith('localhost'),
     })
       .then((response) => {
         const { body } = response;
