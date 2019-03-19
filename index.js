@@ -347,6 +347,27 @@ module.exports = (config) => {
     const nextPath = req.query.state;
     const { code, error } = req.query;
 
+    // Create a function that saves success/failure and reason
+    const saveAndContinue = (failureReason) => {
+      const success = !failureReason;
+
+      // Update the session
+      req.session.authorized = success;
+      req.session.authFailed = !success;
+      req.session.authFailureReason = failureReason;
+
+      // Save the session
+      req.session.save((err) => {
+        // If an error occurred, we cannot continue
+        if (err) {
+          return res.send('Oops! An error occurred while saving authorization information. Please try launching the app again. If this issue continues, contact an admin.');
+        }
+
+        // Session save was a success! Continue
+        return res.redirect(nextPath);
+      });
+    };
+
     // Check for invalid Canvas response
     if (
       nextPath
@@ -354,18 +375,18 @@ module.exports = (config) => {
       && !error
     ) {
       // Canvas responded weirdly
-      return res.redirect(nextPath + '?success=false&reason=error');
+      return saveAndContinue('error');
     }
 
     // Check if we encountered an internal error
     if (!code && (error && error === 'unsupported_response_type')) {
-      return res.redirect(nextPath + '?success=false&reason=internal_error');
+      return saveAndContinue('internal_error');
     }
 
     // Check if access was denied
     if (!code) {
       // Access was denied! Redirect with success=false and message
-      return res.redirect(nextPath + '?success=false&reason=denied');
+      return saveAndContinue('denied');
     }
 
     // Attempt to trade access token for actual access token
@@ -389,7 +410,7 @@ module.exports = (config) => {
 
         // Detect invalid client_secret error
         if (body.error && body.error === 'invalid_client') {
-          res.redirect(nextPath + '?success=false&reason=invalid_client');
+          saveAndContinue('invalid_client');
           throw new Error('break');
         }
 
@@ -489,13 +510,13 @@ module.exports = (config) => {
         }
 
         // Not simulating a launch
-        return res.redirect(nextPath + '?success=true');
+        return saveAndContinue();
       })
       .catch((err) => {
         if (err.message === 'break') {
           return;
         }
-        return res.redirect(nextPath + '?success=false&reason=error');
+        return saveAndContinue('error');
       });
   });
 

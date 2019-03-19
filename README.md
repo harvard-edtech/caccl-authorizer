@@ -83,3 +83,18 @@ To enable this feature,
 Config Option | Type | Description | Default
 :--- | :--- | :--- | :---
 simulateLaunchOnAuthorize | boolean | if true, simulates an LTI launch upon successful authorization (if the user hasn't already launched via LTI) | false
+
+## Session Information
+
+After the authorization process, caccl-authorizer stores information in the user's session:
+
+- **req.session.authorized**  [boolean] - true if the user has successfully authorized with Canvas
+- **req.session.authFailed** [boolean] - true if the user's authorization process failed. If this is true, authFailureReason will be defined.
+- **req.session.authFailureReason** [string] - the reason the user's authorization failed. See values below:
+
+Possible values of `req.session.authFailureReason`:
+
+- "error" - a Canvas error occurred: Canvas responded erratically during the authorization process
+- "internal_error" - an internal error occurred on the server while attempting to process authorization
+- "denied" - the user denied the app access to Canvas when they were prompted
+- "invalid_client" - the app's client_id is invalid: the app is not approved to interact with Canvas
