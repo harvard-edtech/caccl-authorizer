@@ -16,12 +16,10 @@ itS('Invalid Client Secret - Rejects launch request', async function (driver) {
   // Wait for app page to load
   await driver.waitForLocation('https://localhost:8089/');
 
-  // Verify query information
-  const query = await driver.getQuery();
-  if (
-    query.success !== 'false'
-    || query.reason !== 'invalid_client'
-  ) {
-    throw new Error('Invalid query string (should be: invalid_client)');
-  }
+  // Check that auth status was successful
+  await driver.checkAuthStatus({
+    authorized: false,
+    authFailed: true,
+    authFailureReason: 'invalid_client',
+  });
 });

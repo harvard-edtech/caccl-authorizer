@@ -21,7 +21,14 @@ itS('Valid - Sim Launch - Does not simulate launch if launch already occurred', 
   // Click "Authorize"
   await driver.clickByContents('Authorize', 'a');
   driver.log('enforce launch was successful.');
-  await driver.waitForLocation('https://localhost:8089/?success=true');
+  await driver.waitForLocation('https://localhost:8089/');
+
+  // Check that auth status was successful
+  await driver.checkAuthStatus({
+    authorized: true,
+    authFailed: false,
+    authFailureReason: undefined,
+  });
 
   // Check API
   driver.log('check that API access works');
@@ -51,7 +58,14 @@ itS('Valid - Sim Launch - Simulates launch with course picker', async function (
   await driver.clickByContents(courseName, 'div');
 
   // Wait for successful launch
-  await driver.waitForLocation('https://localhost:8089/?success=true');
+  await driver.waitForLocation('https://localhost:8089/');
+
+  // Check that auth status was successful
+  await driver.checkAuthStatus({
+    authorized: true,
+    authFailed: false,
+    authFailureReason: undefined,
+  });
 
   // Check API
   driver.log('check that API access works');

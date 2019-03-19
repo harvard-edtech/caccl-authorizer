@@ -13,6 +13,16 @@ module.exports = (app, config) => {
     getOnLoginTimestamp,
   } = config;
 
+  // Reports auth status info from session
+  app.get('/authstatus', (req, res) => {
+    return res.json({
+      authorized: req.session.authorized,
+      authFailed: req.session.authFailed,
+      authFailureReason: req.session.authFailureReason,
+    });
+  });
+
+  // Reports time since last login
   app.get('/timesinceonlogin', (req, res) => {
     return res.json({
       timestamp: getOnLoginTimestamp(),
@@ -91,6 +101,7 @@ module.exports = (app, config) => {
     req.session.launchInfo = {
       dummyInfo: true,
     };
+    req.session.launched = true;
     req.session.save();
     return res.json({ success: true });
   });

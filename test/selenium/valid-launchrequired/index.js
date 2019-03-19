@@ -23,7 +23,14 @@ itS('Valid - Launch Required - Accepts valid launch requests with launch', async
   // Click "Authorize"
   await driver.clickByContents('Authorize', 'a');
   driver.log('enforce launch was successful.');
-  await driver.waitForLocation('https://localhost:8089/?success=true');
+  await driver.waitForLocation('https://localhost:8089/');
+
+  // Check that auth status was successful
+  await driver.checkAuthStatus({
+    authorized: true,
+    authFailed: false,
+    authFailureReason: undefined,
+  });
 
   // Check API
   driver.log('check that API access works');

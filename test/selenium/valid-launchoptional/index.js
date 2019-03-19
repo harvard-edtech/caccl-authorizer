@@ -10,7 +10,22 @@ itS('Valid - Launch Optional - Accepts valid launch requests without launch', as
   // Click "Authorize"
   await driver.clickByContents('Authorize', 'a');
   driver.log('enforce launch was successful.');
-  await driver.waitForLocation('https://localhost:8089/?success=true');
+  await driver.waitForLocation('https://localhost:8089/');
+
+  // Get the auth status
+  await driver.visit('https://localhost:8089/authstatus');
+  const status = await driver.getJSON();
+
+  // Make sure auth status is valid
+  if (!status.authorized) {
+    throw new Error(`req.session.authorized should be true but it was ${status.authorized}`);
+  }
+  if (status.authFailed) {
+    throw new Error(`req.session.authFailed should be false but it was ${status.authFailed}`);
+  }
+  if (status.authFailureReason) {
+    throw new Error(`req.session.authFailureReason should have been undefined but it was ${status.authFailureReason} instead`);
+  }
 
   // Check API
   driver.log('check that API access works');
@@ -30,7 +45,14 @@ itS('Valid - Launch Optional - Refreshes authorization on successive launches', 
   // Click "Authorize"
   await driver.clickByContents('Authorize', 'a');
   driver.log('enforce launch was successful.');
-  await driver.waitForLocation('https://localhost:8089/?success=true');
+  await driver.waitForLocation('https://localhost:8089/');
+
+  // Check that auth status was successful
+  await driver.checkAuthStatus({
+    authorized: true,
+    authFailed: false,
+    authFailureReason: undefined,
+  });
 
   // Check API
   driver.log('check that API access works');
@@ -59,7 +81,14 @@ itS('Valid - Launch Optional - Accepts valid launch requests with launch', async
   // Click "Authorize"
   await driver.clickByContents('Authorize', 'a');
   driver.log('enforce launch was successful.');
-  await driver.waitForLocation('https://localhost:8089/?success=true');
+  await driver.waitForLocation('https://localhost:8089/');
+
+  // Check that auth status was successful
+  await driver.checkAuthStatus({
+    authorized: true,
+    authFailed: false,
+    authFailureReason: undefined,
+  });
 
   // Check API
   driver.log('check that API access works');
