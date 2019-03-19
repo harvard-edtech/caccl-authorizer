@@ -43,6 +43,34 @@ const renderCourseChooser = (options) => {
 };
 
 /**
+ * Saves authorizations status to session
+ */
+// Create a function that saves success/failure and reason
+const saveAndContinue = (opts) => {
+  const {
+    req,
+    res,
+    nextPath,
+    failureReason,
+  } = opts;
+
+  const success = !failureReason;
+  // Update the session
+  req.session.authorized = success;
+  req.session.authFailed = !success;
+  req.session.authFailureReason = failureReason;
+  // Save the session
+  req.session.save((err) => {
+    // If an error occurred, we cannot continue
+    if (err) {
+      return res.send('Oops! An error occurred while saving authorization information. Please try launching the app again. If this issue continues, contact an admin.');
+    }
+    // Session save was a success! Continue
+    return res.redirect(nextPath);
+  });
+};
+
+/**
  * Initializes the token manager on the given express app
  * @author Gabriel Abrams
  * @param {object} app - express app
@@ -318,8 +346,12 @@ module.exports = (config) => {
       })
       .then((refreshSuccessful) => {
         if (refreshSuccessful) {
-          // Refresh succeeded! Redirect to next path
-          return res.redirect(nextPath);
+          // Refresh succeeded! Save status and redirect to homepage
+          return saveAndContinue({
+            req,
+            res,
+            nextPath,
+          });
         }
         // Refresh failed. Redirect to start authorization process
         const authURL = 'https://' + canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + launchPath + '&state=' + nextPath;
@@ -347,46 +379,41 @@ module.exports = (config) => {
     const nextPath = req.query.state;
     const { code, error } = req.query;
 
-    // Create a function that saves success/failure and reason
-    const saveAndContinue = (failureReason) => {
-      const success = !failureReason;
-
-      // Update the session
-      req.session.authorized = success;
-      req.session.authFailed = !success;
-      req.session.authFailureReason = failureReason;
-
-      // Save the session
-      req.session.save((err) => {
-        // If an error occurred, we cannot continue
-        if (err) {
-          return res.send('Oops! An error occurred while saving authorization information. Please try launching the app again. If this issue continues, contact an admin.');
-        }
-
-        // Session save was a success! Continue
-        return res.redirect(nextPath);
-      });
-    };
-
     // Check for invalid Canvas response
     if (
       nextPath
       && !code
       && !error
     ) {
-      // Canvas responded weirdly
-      return saveAndContinue('error');
+      // Canvas responded weirdly. Save status and redirect to homepage
+      return saveAndContinue({
+        req,
+        res,
+        nextPath,
+        failureReason: 'error',
+      });
     }
 
     // Check if we encountered an internal error
     if (!code && (error && error === 'unsupported_response_type')) {
-      return saveAndContinue('internal_error');
+      // Save status and redirect to homepage
+      return saveAndContinue({
+        req,
+        res,
+        nextPath,
+        failureReason: 'internal_error',
+      });
     }
 
     // Check if access was denied
     if (!code) {
-      // Access was denied! Redirect with success=false and message
-      return saveAndContinue('denied');
+      // Access was denied! Save status and redirect to homepage
+      return saveAndContinue({
+        req,
+        res,
+        nextPath,
+        failureReason: 'denied',
+      });
     }
 
     // Attempt to trade access token for actual access token
@@ -410,7 +437,13 @@ module.exports = (config) => {
 
         // Detect invalid client_secret error
         if (body.error && body.error === 'invalid_client') {
-          saveAndContinue('invalid_client');
+          // Save status and redirect to homepage
+          saveAndContinue({
+            req,
+            res,
+            nextPath,
+            failureReason: 'invalid_client',
+          });
           throw new Error('break');
         }
 
@@ -509,14 +542,25 @@ module.exports = (config) => {
             });
         }
 
-        // Not simulating a launch
-        return saveAndContinue();
+        // Not simulating a launch. We're done authorizing.
+        // Save status and redirect to homepage
+        return saveAndContinue({
+          req,
+          res,
+          nextPath,
+        });
       })
       .catch((err) => {
         if (err.message === 'break') {
           return;
         }
-        return saveAndContinue('error');
+        // Save status and redirect to homepage
+        return saveAndContinue({
+          req,
+          res,
+          nextPath,
+          failureReason: 'error',
+        });
       });
   });
 
@@ -562,8 +606,12 @@ module.exports = (config) => {
       .then(() => {
         // Simulated launch saved
 
-        // Redirect to final path
-        return res.redirect(nextPath + '?success=true');
+        // Save status and redirect to homepage
+        return saveAndContinue({
+          req,
+          res,
+          nextPath,
+        });
       })
       .catch((err) => {
         return res.status(500).send(`Oops! We encountered an error while launching ${appName}. Try starting over. If this error happens again, contact an admin. Error: ${err.message}`);
