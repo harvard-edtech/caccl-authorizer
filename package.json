@@ -30,7 +30,7 @@
   "devDependencies": {
     "body-parser": "^1.19.0",
     "caccl": "^1.0.79",
-    "caccl-canvas-partial-simulator": "^1.0.14",
+    "caccl-canvas-partial-simulator": "^1.0.15",
     "dce-selenium": "^1.0.31",
     "eslint": "^5.16.0",
     "eslint-config-airbnb": "^17.1.0",
