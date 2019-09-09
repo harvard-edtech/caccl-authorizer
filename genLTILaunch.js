@@ -4,6 +4,21 @@ const replaceAll = (str, search, replacement) => {
   return str.replace(new RegExp(search, 'g'), replacement);
 };
 
+/**
+ * Generates an LTI launch body
+ * @param {object} profile - the Canvas profile of the user that is being
+ *   launched
+ * @param {object} course - the Canvas course the user is launching from
+ * @param {string} [canvasHost=canvas.instructure.com] - the hostname of the
+ *   Canvas instance
+ * @param {string} [locale=en] - the locale of the user
+ * @param {string} [userEmail=primary email from profile] - the email of the
+ *   user
+ * @param {string} [appName=Unnamed App] - the name of the app being launched
+ *   from (nav launch)
+ * @param {object} [assignment=null] - if included, the LTI launch is an
+ *   external tool assignment launch based on this assignment
+ */
 module.exports = (options) => {
   const [last, first] = options.profile.sortable_name.split(', ');
 
@@ -68,7 +83,9 @@ module.exports = (options) => {
   body.launch_presentation_locale = options.locale || 'en';
   body.launch_presentation_return_url = null; // We can't get this
   body.launch_presentation_width = null; // Not applicable
-  body.lis_person_contact_email_primary = options.userEmail;
+  body.lis_person_contact_email_primary = (
+    options.userEmail || options.profile.primary_email
+  );
   body.lis_person_name_family = last;
   body.lis_person_name_full = options.profile.name;
   body.lis_person_name_given = first;
@@ -77,7 +94,7 @@ module.exports = (options) => {
   body.lti_version = 'LTI-1p0';
   body.oauth_callback = 'about:blank';
   body.resource_link_id = options.course.uuid;
-  body.resource_link_title = options.appName;
+  body.resource_link_title = options.appName || 'Unnamed App';
   body.roles = roles.join(',');
   body.tool_consumer_info_product_family_code = 'canvas';
   body.tool_consumer_info_version = 'cloud';
