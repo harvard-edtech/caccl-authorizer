@@ -19,6 +19,8 @@ const courseChooserTemplate = ejs.compile(
   )
 );
 
+const FIVE_MINS_MS = 300000;
+
 /**
  * Creates the HTML for a course chooser page
  * @author Gabriel Abrams
@@ -258,7 +260,7 @@ module.exports = (config) => {
       // Check if token has expired
       if (
         req.session.accessTokenExpiry
-        && Date.now() < req.session.accessTokenExpiry
+        && Date.now() < req.session.accessTokenExpiry - FIVE_MINS_MS
       ) {
         // Not expired yet. Don't need to refresh
         return next();
