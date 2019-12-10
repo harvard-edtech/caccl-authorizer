@@ -1,6 +1,6 @@
 {
   "name": "caccl-authorizer",
-  "version": "1.0.42",
+  "version": "1.0.43",
   "description": "Acquires Canvas tokens through via OAuth, stores refresh tokens, and refreshes access tokens when they expire.",
   "main": "index.js",
   "scripts": {
