@@ -3,6 +3,7 @@ const path = require('path');
 const ejs = require('ejs');
 
 const API = require('caccl-api');
+const getScopes = require('caccl-api/getScopes');
 const CACCLError = require('caccl-error');
 const sendRequest = require('caccl-send-request');
 const parseLaunch = require('caccl-lti/parseLaunch');
@@ -106,6 +107,11 @@ const saveAndContinue = (opts) => {
  *   via LTI), essentially allowing users to either launch via LTI or launch
  *   the tool by visiting launchPath (GET). If falsy, when a user visits
  *   launchPath and has not launched via LTI, they will be given an error
+ * @param {object[]} [scopes] - list of caccl-api functions
+ *   (e.g. api.course.listStudents), caccl-api endpoint categories
+ *   (e.g. api.course), or scope strings (e.g. url:GET|/api/v1/courses). You
+ *   may mix and match any of the types above. These scopes will be included
+ *   in all authorization requests
  */
 module.exports = (config) => {
   // Check if required config are included
@@ -135,6 +141,19 @@ module.exports = (config) => {
       ? []
       : config.autoRefreshRoutes || ['*']
   );
+
+  // Initialize scopes
+  let scopeAuthPageQueryAddon = '';
+  let scopesParam;
+  if (config.scopes) {
+    const scopeLists = config.scopes.map((scope) => {
+      return getScopes(scope);
+    });
+    const scopes = [].concat(...scopeLists);
+    const scopeString = scopes.join(' ');
+    scopeAuthPageQueryAddon = `&scopes=${encodeURIComponent(scopeString)}`;
+    scopesParam = scopes;
+  }
 
   // Initialize the default authorized redirect path
   const defaultAuthorizedRedirect = config.defaultAuthorizedRedirect || '/';
@@ -186,10 +205,11 @@ module.exports = (config) => {
       path: '/login/oauth2/token',
       method: 'POST',
       params: {
+        scopesParam,
         grant_type: 'refresh_token',
+        refresh_token: refreshToken,
         client_id: config.developerCredentials.client_id,
         client_secret: config.developerCredentials.client_secret,
-        refresh_token: refreshToken,
       },
     })
       .then((response) => {
@@ -356,7 +376,7 @@ module.exports = (config) => {
           });
         }
         // Refresh failed. Redirect to start authorization process
-        const authURL = 'https://' + canvasHost + '/login/oauth2/auth?client_id=' + config.developerCredentials.client_id + '&response_type=code&redirect_uri=https://' + req.headers.host + launchPath + '&state=' + nextPath;
+        const authURL = `https://${canvasHost}/login/oauth2/auth?client_id=${config.developerCredentials.client_id}&response_type=code&redirect_uri=https://${req.hostname}${launchPath}&state=${nextPath}${scopeAuthPageQueryAddon}`;
         return res.redirect(authURL);
       });
   });
@@ -426,11 +446,12 @@ module.exports = (config) => {
       path: '/login/oauth2/token',
       method: 'POST',
       params: {
-        grant_type: 'authorization_code',
         code,
+        scopesParam,
+        grant_type: 'authorization_code',
         client_id: config.developerCredentials.client_id,
         client_secret: config.developerCredentials.client_secret,
-        redirect_uri: 'https://' + req.headers.host + launchPath,
+        redirect_uri: `https://${req.hostname}${launchPath}`,
       },
       ignoreSSLIssues: canvasHost.startsWith('localhost'),
     })
