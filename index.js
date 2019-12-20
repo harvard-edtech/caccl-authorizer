@@ -149,7 +149,14 @@ module.exports = (config) => {
     const scopeLists = config.scopes.map((scope) => {
       return getScopes(scope);
     });
-    const scopes = [].concat(...scopeLists);
+
+    const scopes = Array.from(
+      // Remove duplicates by putting items in a set
+      new Set(
+        [].concat(...scopeLists)
+      )
+    );
+
     const scopeString = scopes.join(' ');
     scopeAuthPageQueryAddon = `&scopes=${encodeURIComponent(scopeString)}`;
     scopesParam = scopes;
