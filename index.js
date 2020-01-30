@@ -264,6 +264,12 @@ module.exports = (config) => {
       });
     };
 
+    // Function to perform a refresh
+    // Returns { accessToken, refreshToken } upon success or false on failure
+    req.performRefresh = () => {
+      return refreshAuthorization(req, req.session.refreshToken);
+    };
+
     next();
   });
 
