@@ -1,13 +1,16 @@
+// Import libraries
 const fs = require('fs');
 const path = require('path');
 const ejs = require('ejs');
 
+// Import CACCL modules
 const API = require('caccl-api');
 const getScopes = require('caccl-api/getScopes');
 const CACCLError = require('caccl-error');
 const sendRequest = require('caccl-send-request');
 const parseLaunch = require('caccl-lti/parseLaunch');
 
+// Import local modules
 const MemoryTokenStore = require('./MemoryTokenStore.js');
 const errorCodes = require('./errorCodes.js');
 const genLTILaunch = require('./genLTILaunch.js');
@@ -20,12 +23,23 @@ const courseChooserTemplate = ejs.compile(
   )
 );
 
+// Constants
 const FIVE_MINS_MS = 300000;
+
+/*------------------------------------------------------------------------*/
+/*                                 Helpers                                */
+/*------------------------------------------------------------------------*/
 
 /**
  * Creates the HTML for a course chooser page
  * @author Gabriel Abrams
- * @param {object} courses - the list of Canvas course objects to render
+ * @param {object} options - an object containing all arguments
+ * @param {Express Response} options.res - an express response instance
+ * @param {string} options.launchPath - launch path for the app
+ * @param {string} options.nextPath - path to continue with after user chooses
+ *   course
+ * @param {object[]} options.courses - the list of Canvas course objects to
+ *   render
  * @return html of a course chooser page
  */
 const renderCourseChooser = (options) => {
@@ -47,9 +61,14 @@ const renderCourseChooser = (options) => {
 
 /**
  * Saves authorizations status to session
+ * @param {object} opts - all arguments in one object
+ * @param {Express Request} opts.req - express request instance
+ * @param {Express Response} opts.res - express response instance
+ * @param {string} opts.nextPath - the path to continue with
+ * @param {string} [opts.failureReason] - reason for failure, if a failure
+ *   occurred
  */
-// Create a function that saves success/failure and reason
-const saveAndContinue = (opts) => {
+const saveAndContinue = async (opts) => {
   const {
     req,
     res,
@@ -57,21 +76,29 @@ const saveAndContinue = (opts) => {
     failureReason,
   } = opts;
 
-  const success = !failureReason;
   // Update the session
-  req.session.authorized = success;
-  req.session.authFailed = !success;
+  req.session.authorized = !failureReason;
+  req.session.authFailed = !!failureReason;
   req.session.authFailureReason = failureReason;
+
   // Save the session
-  req.session.save((err) => {
-    // If an error occurred, we cannot continue
-    if (err) {
-      return res.send('Oops! An error occurred while saving authorization information. Please try launching the app again. If this issue continues, contact an admin.');
-    }
-    // Session save was a success! Continue
-    return res.redirect(nextPath);
+  return new Promise((resolve, reject) => {
+    req.session.save((err) => {
+      // If an error occurred, we cannot continue
+      if (err) {
+        res.send('Oops! An error occurred while saving authorization information. Please try launching the app again. If this issue continues, contact an admin.');
+        return reject(err);
+      }
+      // Session save was a success! Continue
+      res.redirect(nextPath);
+      return resolve();
+    });
   });
 };
+
+/*------------------------------------------------------------------------*/
+/*                           Main Functionality                           */
+/*------------------------------------------------------------------------*/
 
 /**
  * Initializes the token manager on the given express app
@@ -93,8 +120,8 @@ const saveAndContinue = (opts) => {
  * @param {array.<string>} [autoRefreshRoutes=['*']] - the list of routes to
  *   automatically refresh the access token for (if the access token has
  *   expired)
- * @param {object|null} [tokenStore=memory token store] - null to turn off
- *   storage of refresh tokens, exclude parameter to use memory token store,
+ * @param {object|null} [tokenStore=memory token store] - exclude parameter to
+ *   use memory token store,
  *   or include a custom token store of form { get(key), set(key, val) } where
  *   both functions return promises
  * @param {function} [onLogin] - a function to call with params (req, res)
@@ -167,10 +194,7 @@ module.exports = (config) => {
 
   // Initialize token store
   let tokenStore;
-  if (config.tokenStore === null) {
-    // Null specifically included, do not use a token store
-    tokenStore = null;
-  } else if (config.tokenStore === undefined) {
+  if (!config.tokenStore) {
     // No token store included, use memory store
     tokenStore = new MemoryTokenStore();
   } else {
@@ -197,120 +221,181 @@ module.exports = (config) => {
     ({ tokenStore } = config.tokenStore);
   }
 
-  // Create refresh function
-  const refreshAuthorization = (req, refreshToken) => {
-    if (
-      !refreshToken
-      || !req
-      || !req.session
-    ) {
+  /*------------------------------------------------------------------------*/
+  /*                          Refresh Authorization                         */
+  /*------------------------------------------------------------------------*/
+
+  /**
+   * Refresh the current user's authorization
+   * @author Gabe Abrams
+   * @param {Express Request} req - express request object
+   * @param {string} refreshToken - the refresh token to use for refresh
+   * @return {object|false} if successful, returns
+   *   { accessToken, refreshToken, accessTokenExpiry }. If unsuccessful,
+   *   returns false
+   */
+  const refreshAuthorization = async (req, refreshToken) => {
+    if (!req || !refreshToken) {
       // No refresh token or no session to save to, resolve with false
-      return Promise.resolve(false);
+      return false;
     }
-    return sendRequest({
-      host: canvasHost,
-      path: '/login/oauth2/token',
-      method: 'POST',
-      params: {
-        scopesParam,
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: config.developerCredentials.client_id,
-        client_secret: config.developerCredentials.client_secret,
-      },
-    })
-      .then((response) => {
-        // Parse to get token
-        const { body } = response;
-        const accessToken = body.access_token;
-        const expiresIn = (body.expires_in * 1000);
-        const accessTokenExpiry = Date.now() + expiresIn;
-        // Save credentials
-        return req.logInManually(accessToken, refreshToken, accessTokenExpiry);
-      })
-      .catch(() => {
-        // An error occurred. Resolve with false
-        return Promise.resolve(false);
+
+    try {
+      const { body } = await sendRequest({
+        host: canvasHost,
+        path: '/login/oauth2/token',
+        method: 'POST',
+        params: {
+          scopesParam,
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: config.developerCredentials.client_id,
+          client_secret: config.developerCredentials.client_secret,
+        },
       });
+
+      // Parse to get token
+      const accessToken = body.access_token;
+      const expiresIn = (body.expires_in * 0.99 * 1000);
+      const accessTokenExpiry = Date.now() + expiresIn;
+
+      // Save credentials
+      await req.logInManually(
+        accessToken,
+        refreshToken,
+        accessTokenExpiry
+      );
+
+      return {
+        accessToken,
+        refreshToken,
+        accessTokenExpiry,
+      };
+    } catch (err) {
+      // An error occurred. Resolve with false
+      return false;
+    }
   };
 
   /*------------------------------------------------------------------------*/
-  /*                      Manual Authorization Process                      */
+  /*                      Functions Added in Middleware                     */
   /*------------------------------------------------------------------------*/
 
-  config.app.use((req, res, next) => {
-    req.logInManually = (accessToken, refreshToken, expiry) => {
-      // Save in session
-      req.session.accessToken = accessToken;
-      req.session.accessTokenExpiry = expiry;
-      req.session.refreshToken = refreshToken;
+  config.app.use(async (req, res, next) => {
+    // Get the current user's id
+    const { currentUserCanvasId } = req.session;
 
-      // Send callback
+    /**
+     * Function to manually log in a user (by storing their tokens)
+     * @author Gabe Abrams
+     * @param {string} accessToken - the user's access token
+     * @param {string} refreshToken - the user's refresh token
+     * @param {number} expiry - a ms since epoch accessToken expiry
+     */
+    req.logInManually = async (accessToken, refreshToken, expiry) => {
+      // Save in the store
+      await tokenStore.set(currentUserCanvasId, {
+        accessToken,
+        refreshToken,
+        expiry,
+      });
+
+      // Call callback
       if (config.onLogin) {
         config.onLogin(req, res);
       }
 
-      // Save session
-      return new Promise((resolve, reject) => {
-        req.session.save((err) => {
-          if (err) {
-            return reject(err);
-          }
-          return resolve({
-            accessToken,
-            refreshToken,
-          });
-        });
-      });
+      // Add access token to request object
+      req.accessToken = accessToken;
     };
 
-    // Function to perform a refresh
-    // Returns { accessToken, refreshToken } upon success or false on failure
-    req.performRefresh = () => {
-      return refreshAuthorization(req, req.session.refreshToken);
+    /**
+     * Perform a refresh
+     * @author Gabe Abrams
+     * @return {object|false} if successful, returns
+     *   { accessToken, refreshToken, accessTokenExpiry }. If unsuccessful,
+     *   returns false
+     */
+    req.performRefresh = async () => {
+      // Look up the user's refresh token
+      const { refreshToken } = await tokenStore.get(currentUserCanvasId);
+      return refreshAuthorization(currentUserCanvasId, refreshToken);
     };
 
+    // Continue
     next();
   });
 
   /*------------------------------------------------------------------------*/
-  /*                          Token Refresh Process                         */
+  /*                           Token Auto-refresh                           */
   /*------------------------------------------------------------------------*/
 
+  // Add middleware to all paths that are auto-refreshed
   autoRefreshRoutes.forEach((autoRefreshRoute) => {
-    // Add middleware to automatically refresh the access token upon expiry
-    config.app.use(autoRefreshRoute, (req, res, next) => {
-      // Check if we have a token
-      if (
-        !req.session
-        || !req.session.accessToken
-        || !req.session.refreshToken
-      ) {
+    // Middleware: automatically refresh the access token upon expiry
+    config.app.use(autoRefreshRoute, async (req, res, next) => {
+      // If no current user, cannot refresh because we can't look up tokens
+      if (!req.session || !req.session.currentUserCanvasId) {
+        return next();
+      }
+
+      // Check if we have tokens to refresh
+      const {
+        accessToken,
+        refreshToken,
+        accessTokenExpiry,
+      } = await tokenStore.get(req.session.currentUserCanvasId);
+      if (!accessToken || !refreshToken) {
         // No token. Nothing to refresh
         return next();
       }
 
       // Check if token has expired
-      if (
-        req.session.accessTokenExpiry
-        && Date.now() < req.session.accessTokenExpiry - FIVE_MINS_MS
-      ) {
+      if (accessTokenExpiry && Date.now() < accessTokenExpiry - FIVE_MINS_MS) {
         // Not expired yet. Don't need to refresh
         return next();
       }
 
       // Refresh the token
-      refreshAuthorization(req, req.session.refreshToken)
-        .then((refreshSuccessful) => {
-          if (refreshSuccessful) {
-            return next();
-          }
-          throw new Error();
-        })
-        .catch(() => {
-          return res.status(500).send('Internal server error: your Canvas authorization has expired and we could not refresh your credentials.');
-        });
+      try {
+        if (await refreshAuthorization(req, refreshToken)) {
+          // Refresh was successful. Continue
+          return next();
+        }
+
+        // Force an error to occur: refresh failed
+        throw new Error();
+      } catch (err) {
+        // Refresh failed. Show error to user
+        return (
+          res
+            .status(500)
+            .send('Internal server error: your Canvas authorization has expired and we could not refresh your credentials.')
+        );
+      }
     });
+  });
+
+  /*------------------------------------------------------------------------*/
+  /*                    Middleware to Add req.accessToken                   */
+  /*------------------------------------------------------------------------*/
+
+  config.app.use(async (req, res, next) => {
+    // Check if there is no token and we are also able to look one up
+    if (
+      !req.accessToken
+      && req.session
+      && req.session.currentUserCanvasId
+    ) {
+      const key = req.session.currentUserCanvasId;
+      const { accessToken } = await tokenStore.get(key);
+
+      // Store in req object
+      req.accessToken = accessToken;
+    }
+
+    // Continue
+    next();
   });
 
   /*------------------------------------------------------------------------*/
@@ -318,10 +403,14 @@ module.exports = (config) => {
   /*------------------------------------------------------------------------*/
 
   // Step 1: Try to refresh, if not possible, redirect to authorization screen
-  config.app.get(launchPath, (req, res, next) => {
+  config.app.get(launchPath, async (req, res, next) => {
     if (!req.session) {
       // No session! Cannot authorize without session
-      return res.status(403).send('Internal error: cannot authorize without express-session initialized on the app.');
+      return (
+        res
+          .status(403)
+          .send('Internal error: cannot authorize without session initialized by the app.')
+      );
     }
 
     // Skip if not step 1
@@ -347,7 +436,11 @@ module.exports = (config) => {
       && !config.allowAuthorizationWithoutLaunch
     ) {
       // Cannot authorize
-      return res.status(403).send(`Please launch ${appName} via Canvas.`);
+      return (
+        res
+          .status(403)
+          .send(`Please launch ${appName} via Canvas.`)
+      );
     }
 
     // Extract the next path
@@ -358,44 +451,31 @@ module.exports = (config) => {
     );
 
     // Look for a refresh token
-    let getRefreshTokenPromise;
-    if (req.session && req.session.refreshToken) {
-      // Refresh token is in session
-      getRefreshTokenPromise = Promise.resolve(req.session.refreshToken);
-    } else if (
-      tokenStore
-      && req.session
-      && req.session.currentUserCanvasId
-    ) {
-      // Look for refresh token in the token store
-      getRefreshTokenPromise = tokenStore.get(req.session.currentUserCanvasId);
-    } else {
-      // Can't refresh! Return null to jump to authorization
-      getRefreshTokenPromise = Promise.resolve(null);
+    let refreshToken;
+    if (req.session && req.session.currentUserCanvasId) {
+      const key = req.session.currentUserCanvasId;
+      ({ refreshToken } = await tokenStore.get(key));
     }
+
     // Use refresh token to refresh, or jump to auth if no refresh token
-    return getRefreshTokenPromise
-      .then((refreshToken) => {
-        // Attempt to refresh
-        return refreshAuthorization(req, refreshToken);
-      })
-      .then((refreshSuccessful) => {
-        if (refreshSuccessful) {
-          // Refresh succeeded! Save status and redirect to homepage
-          return saveAndContinue({
-            req,
-            res,
-            nextPath,
-          });
-        }
-        // Refresh failed. Redirect to start authorization process
-        const authURL = `https://${canvasHost}/login/oauth2/auth?client_id=${config.developerCredentials.client_id}&response_type=code&redirect_uri=https://${req.hostname}${launchPath}&state=${nextPath}${scopeAuthPageQueryAddon}`;
-        return res.redirect(authURL);
-      });
+    if (refreshToken) {
+      const refreshSuccessful = await refreshAuthorization(req, refreshToken);
+      if (refreshSuccessful) {
+        return saveAndContinue({
+          req,
+          res,
+          nextPath,
+        });
+      }
+    }
+
+    // Refresh failed. Redirect to start authorization process
+    const authURL = `https://${canvasHost}/login/oauth2/auth?client_id=${config.developerCredentials.client_id}&response_type=code&redirect_uri=https://${req.hostname}${launchPath}&state=${nextPath}${scopeAuthPageQueryAddon}`;
+    return res.redirect(authURL);
   });
 
-  // Step 2: Receive code or denial
-  config.app.get(launchPath, (req, res, next) => {
+  // Step 2: Receive code or denial. Render course chooser if simulating launch.
+  config.app.get(launchPath, async (req, res, next) => {
     // Skip unless we have a code OR error and a state
     if (
       !req.query
@@ -430,7 +510,11 @@ module.exports = (config) => {
     }
 
     // Check if we encountered an internal error
-    if (!code && (error && error === 'unsupported_response_type')) {
+    if (
+      !code
+      && error
+      && error === 'unsupported_response_type'
+    ) {
       // Save status and redirect to homepage
       return saveAndContinue({
         req,
@@ -451,10 +535,8 @@ module.exports = (config) => {
       });
     }
 
-    // Attempt to trade access token for actual access token
-    let launchUserId;
-    let accessToken;
-    sendRequest({
+    // Attempt to trade auth code for actual access token
+    const response = await sendRequest({
       host: canvasHost,
       path: '/login/oauth2/token',
       method: 'POST',
@@ -467,129 +549,98 @@ module.exports = (config) => {
         redirect_uri: `https://${req.hostname}${launchPath}`,
       },
       ignoreSSLIssues: canvasHost.startsWith('localhost'),
-    })
-      .then((response) => {
-        const { body } = response;
+    });
 
-        // Detect invalid client_secret error
-        if (body.error && body.error === 'invalid_client') {
-          // Save status and redirect to homepage
-          saveAndContinue({
-            req,
-            res,
-            nextPath,
-            failureReason: 'invalid_client',
-          });
-          throw new Error('break');
-        }
+    const { body } = response;
 
-        // Extract token
-        accessToken = body.access_token;
-        const refreshToken = body.refresh_token;
-        const expiresInMs = (body.expires_in * 0.99 * 1000);
-        const accessTokenExpiry = Date.now() + expiresInMs;
+    // Detect invalid client_secret error
+    if (body.error && body.error === 'invalid_client') {
+      // Save status and redirect to homepage
+      return saveAndContinue({
+        req,
+        res,
+        nextPath,
+        failureReason: 'invalid_client',
+      });
+    }
 
-        // Extract user info
-        launchUserId = body.user.id;
+    // Extract token
+    const accessToken = body.access_token;
+    const refreshToken = body.refresh_token;
+    const expiresInMs = (body.expires_in * 0.99 * 1000);
+    const accessTokenExpiry = Date.now() + expiresInMs;
 
-        // Store in token store:
-        // - if we have a token store
-        // - if not: simulating a launch while we already have the user's
-        //   refresh token
-        if (tokenStore) {
-          if (config.simulateLaunchOnAuthorize && !req.session.launchInfo) {
-            // Simulating a launch. Check if we already have the user's
-            // refresh token. If we do, try to refresh using that refresh token.
-            // If that works, don't save this access token. Just
-            // use it to kill the current authorization login (the one we used
-            // to identify the user) and then perform a refresh using the saved
-            // token. If that doesn't work, overwrite the old refresh token with
-            // our new one.
+    // Extract user info
+    const launchUserId = body.user.id;
 
-            // Lookup user's refresh token
-            return tokenStore.get(launchUserId)
-              .then((storedRefreshToken) => {
-                if (!storedRefreshToken) {
-                  // No refresh token
-                  return Promise.resolve(false);
-                }
-                // Attempt to refresh
-                return refreshAuthorization(req, refreshToken);
-              })
-              .then((refreshSuccessful) => {
-                if (refreshSuccessful) {
-                  // Kill the current authorization (the one we used to identify
-                  // the user)
+    // Store in token store:
+    // - if not: simulating a launch while we already have the user's
+    //   refresh token
+    if (config.simulateLaunchOnAuthorize && !req.session.launchInfo) {
+      // Simulating a launch. Check if we already have the user's
+      // refresh token. If we do, try to refresh using that refresh token.
+      // If that works, don't save this access token. Just
+      // use it to kill the current authorization login (the one we used
+      // to identify the user) and then perform a refresh using the saved
+      // token. If that doesn't work, overwrite the old refresh token with
+      // our new one.
 
-                } else {
-                  // Refresh failed
-                  // - Save current tokens
-                  // - Login using these tokens
-                  return tokenStore.set(launchUserId, refreshToken)
-                    .then(() => {
-                      // Save in session
-                      return req.logInManually(
-                        accessToken,
-                        refreshToken,
-                        accessTokenExpiry
-                      );
-                    });
-                }
-              });
-          }
+      // Lookup user's refresh token
+      const storedRefreshToken = (
+        await tokenStore.get(launchUserId)
+      ).refreshToken;
 
-          // Not simulating a launch. Just save the refresh token and log in
-          return tokenStore.set(launchUserId, refreshToken)
-            .then(() => {
-              return req.logInManually(
-                accessToken,
-                refreshToken,
-                accessTokenExpiry
-              );
-            });
-        }
+      let refreshSuccessful = false;
+      if (storedRefreshToken) {
+        // Attempt to refresh
+        (refreshSuccessful = await refreshAuthorization(
+          req,
+          storedRefreshToken
+        ));
+      }
 
-        // Nothing to save or look up. Just log in and continue
+      if (refreshSuccessful) {
+        // TODO: Kill the current authorization (the one we used to identify
+        // the user)
+      } else {
+        // Refresh failed
+        // - Save current tokens
+        // - Login using these tokens
         return req.logInManually(
           accessToken,
           refreshToken,
           accessTokenExpiry
         );
-      })
-      .then(() => {
-        // If simulating a launch, do that now
-        if (config.simulateLaunchOnAuthorize && !req.session.launchInfo) {
-          // Get API
-          const api = new API({
-            accessToken,
-            canvasHost,
-            cacheType: null,
-          });
+      }
+    }
 
-          // Pull list of courses, ask user to choose a course
-          return api.user.self.listCourses({ includeTerm: true })
-            .then((courses) => {
-              return renderCourseChooser({
-                res,
-                launchPath,
-                courses,
-                nextPath,
-              });
-            });
-        }
+    // Nothing to save or look up. Just log in and continue
+    await req.logInManually(
+      accessToken,
+      refreshToken,
+      accessTokenExpiry
+    );
 
-        // Not simulating a launch. We're done authorizing.
-        // Save status and redirect to homepage
-        return saveAndContinue({
-          req,
+    // If simulating a launch, do that now
+    if (config.simulateLaunchOnAuthorize && !req.session.launchInfo) {
+      // Get API
+      const api = new API({
+        accessToken,
+        canvasHost,
+        cacheType: null,
+      });
+
+      // Pull list of courses, ask user to choose a course
+      try {
+        const courses = await api.user.self.listCourses({ includeTerm: true });
+
+        return renderCourseChooser({
           res,
+          launchPath,
+          courses,
           nextPath,
         });
-      })
-      .catch((err) => {
-        if (err.message === 'break') {
-          return;
-        }
+      } catch (err) {
         // Save status and redirect to homepage
         return saveAndContinue({
           req,
@@ -597,15 +648,24 @@ module.exports = (config) => {
           nextPath,
           failureReason: 'error',
         });
-      });
+      }
+    }
+
+    // Not simulating a launch. We're done authorizing.
+    // Save status and redirect to homepage
+    return saveAndContinue({
+      req,
+      res,
+      nextPath,
+    });
   });
 
   // Step 3: Choose course (only required for simulated launch)
-  config.app.get(launchPath, (req, res, next) => {
+  config.app.get(launchPath, async (req, res, next) => {
     if (
       !req.query.course
       || !req.session
-      || !req.session.accessToken
+      || !req.accessToken
     ) {
       return next();
     }
@@ -621,42 +681,50 @@ module.exports = (config) => {
     });
 
     // Simulate the launch
+    try {
+      // Get the course information
+      const [
+        course,
+        profile,
+      ] = await Promise.all([
+        api.course.get({ courseId }),
+        api.user.self.getProfile(),
+      ]);
 
-    // Get the course information
-    Promise.all([
-      api.course.get({ courseId }),
-      api.user.self.getProfile(),
-    ])
-      .then(([course, profile]) => {
-        // Create a simulated launch
-        const simulatedLTILaunchBody = genLTILaunch({
-          course,
-          profile,
-          appName,
-          canvasHost,
-        });
-
-        // Parse and save the simulated launch
-        return parseLaunch(simulatedLTILaunchBody, req);
-      })
-      .then(() => {
-        // Simulated launch saved
-
-        // Save status and redirect to homepage
-        return saveAndContinue({
-          req,
-          res,
-          nextPath,
-        });
-      })
-      .catch((err) => {
-        return res.status(500).send(`Oops! We encountered an error while launching ${appName}. Try starting over. If this error happens again, contact an admin. Error: ${err.message}`);
+      // Create a simulated launch
+      const simulatedLTILaunchBody = genLTILaunch({
+        course,
+        profile,
+        appName,
+        canvasHost,
       });
+
+      // Parse and save the simulated launch
+      await parseLaunch(simulatedLTILaunchBody, req);
+      // Simulated launch saved
+
+      // Save status and redirect to homepage
+      return saveAndContinue({
+        req,
+        res,
+        nextPath,
+      });
+    } catch (err) {
+      return (
+        res
+          .status(500)
+          .send(`Oops! We encountered an error while launching ${appName}. Try starting over. If this error happens again, contact an admin. Error: ${err.message}`)
+      );
+    }
   });
 
   // We use middleware to handle authorization. If we get to this handler, an
   // error has occurred
   config.app.get(launchPath, (req, res) => {
-    return res.status(500).send(`Oops! Something went wrong during authorization. Please re-launch ${appName}.`);
+    return (
+      res
+        .status(500)
+        .send(`Oops! Something went wrong during authorization. Please re-launch ${appName}.`)
+    );
   });
 };

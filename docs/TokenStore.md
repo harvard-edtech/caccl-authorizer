@@ -4,21 +4,37 @@ Your custom token store object will be designed to replace the built-in memory s
 
 ## Methods
 
-### get(key)
+### async get(key)
+
+Get the tokens for a user
+ * @param {number} canvasId -
+ * @return {object}
+ */
 
 Argument | Type | Description
 :--- | :--- | :---
-key | string | the storage key
+canvasId | number | the canvasId for the user to look up
 
-Returns:  
-`Promise` that resolves with the value associated with the given key.
+Returns:
 
-### set(key, value)
+token object in the following form: `{ refreshToken, accessToken, accessTokenExpiry }` where refreshToken and accessToken are string tokens and accessTokenExpiry is a ms since epoch expiry timestamp for the accessToken. The refreshToken is assumed to not expire
+
+### async set(canvasId, tokens)
+
+Store tokens for a user
 
 Argument | Type | Description
 :--- | :--- | :---
-key | string | the storage key
-value | string | the value to store
+canvasId | number | the canvasId for the user to store tokens for
+tokens | object | an object containing all token info to update
+
+Allowed properties for tokens:
+
+Argument | Type | Description
+:--- | :--- | :---
+tokens.refreshToken | string | if included, updates the user's current value for their refreshToken
+tokens.accessToken | string | if included, updates the user's current value for their accessToken
+tokens.accessTokenExpiry | number | if included, updates the user's current accessToken expiry
 
 Returns:  
 `Promise` that resolves when the store is successful.

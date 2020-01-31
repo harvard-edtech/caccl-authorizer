@@ -1,11 +1,20 @@
 const randomstring = require('randomstring');
 
+/**
+ * Replace all occurrences in a string
+ * @author Gabe Abrams
+ * @param {string} str - the string to search
+ * @param {string} search - the fragment to search for
+ * @param {string} replacement - the fragment to replace when search is found
+ * @return {string} the string with its replacements made
+ */
 const replaceAll = (str, search, replacement) => {
   return str.replace(new RegExp(search, 'g'), replacement);
 };
 
 /**
  * Generates an LTI launch body
+ * @author Gabe Abrams
  * @param {object} profile - the Canvas profile of the user that is being
  *   launched
  * @param {object} course - the Canvas course the user is launching from
@@ -20,12 +29,14 @@ const replaceAll = (str, search, replacement) => {
  *   external tool assignment launch based on this assignment
  */
 module.exports = (options) => {
+  // Get the first and last name from the profile
   const [last, first] = options.profile.sortable_name.split(', ');
 
   // Prep roles
   const extRoles = [];
   const roles = [];
   if (Array.isArray(options.course.enrollments)) {
+    // Add student enrollment if applicable
     const hasStudentEnrollment = (
       options.course.enrollments.some((enrollment) => {
         return enrollment.type === 'student';
@@ -40,6 +51,7 @@ module.exports = (options) => {
       roles.push('Learner');
     }
 
+    // Add teacher enrollment if applicable
     const hasTeacherEnrollment = (
       options.course.enrollments.some((enrollment) => {
         return enrollment.type === 'teacher';
