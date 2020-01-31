@@ -676,7 +676,7 @@ module.exports = (config) => {
     // Create API
     const api = new API({
       canvasHost,
-      accessToken: req.session.accessToken,
+      accessToken: req.accessToken,
       cacheType: null,
     });
 

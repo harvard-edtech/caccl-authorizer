@@ -48,21 +48,16 @@ module.exports = (app, config) => {
   // Verify that API is working
   app.get('/withapi/verifyapi', async (req, res) => {
     // Make sure we have the correct session param
-    if (
-      !req.session
-      || !req.session.accessToken
-      || !req.session.refreshToken
-      || !req.session.accessTokenExpiry
-    ) {
+    if (!req.accessToken) {
       return res.json({
         success: false,
-        message: `Required: accessToken, refreshToken, and accessTokenExpiry in session. Instead, seassion was: ${req.session}`,
+        message: `Required: accessToken. Instead, seassion was: ${req.accessToken}`,
       });
     }
 
     // Make sure token hasn't expired
     const elapsedSinceExpiry = (
-      req.session.accessTokenExpiry < Date.now()
+      req.accessTokenExpiry < Date.now()
     );
     if (elapsedSinceExpiry > 0) {
       return res.json({
@@ -74,7 +69,7 @@ module.exports = (app, config) => {
     // Try to use the access token to get user's profile
     const api = new API({
       canvasHost,
-      accessToken: req.session.accessToken,
+      accessToken: req.accessToken,
     });
     // Attempt to get user's profile
     try {
@@ -139,7 +134,7 @@ module.exports = (app, config) => {
   // Route that immediately expires the current access token
   app.get('/expirenow', (req, res) => {
     // Set as expired (expiration is now):
-    req.session.accessTokenExpiry = Date.now();
+    req.accessTokenExpiry = Date.now();
 
     // Save session
     req.session.save((err) => {
@@ -150,7 +145,7 @@ module.exports = (app, config) => {
   // Check how long till token expires
   app.get('/tokentimeleft', (req, res) => {
     return res.json({
-      ms: req.session.accessTokenExpiry - Date.now(),
+      ms: req.accessTokenExpiry - Date.now(),
     });
   });
 
