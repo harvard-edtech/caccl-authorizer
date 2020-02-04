@@ -363,7 +363,6 @@ module.exports = (config) => {
       // Refresh the token
       try {
         const refreshSuccessful = await refreshAuthorization(req, refreshToken);
-        console.log(`Refreshing because expiry: ${accessTokenExpiry - FIVE_MINS_MS} > ${Date.now()} – `, refreshSuccessful);
         if (refreshSuccessful) {
           // Refresh was successful. Continue
           return next();

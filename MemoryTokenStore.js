@@ -13,9 +13,7 @@ class MemoryTokenStore {
    *   expire OR returns {} if no entry yet.
    */
   async get(canvasId) {
-    const value = this._store.get(canvasId) || {};
-    console.log('Get', canvasId, value);
-    return value;
+    return this._store.get(canvasId) || {};
   }
 
   /**
