@@ -51,7 +51,7 @@ module.exports = (app, config) => {
     if (!req.accessToken) {
       return res.json({
         success: false,
-        message: `Required: accessToken. Instead, seassion was: ${req.accessToken}`,
+        message: `Required: req.accessToken. Instead, req.accessToken was: ${req.accessToken}`,
       });
     }
 
