@@ -43,9 +43,6 @@ class MemoryTokenStore {
 
     // Store
     this._store.set(canvasId, newTokens);
-
-    // Return resolve
-    return Promise.resolve();
   }
 }
 

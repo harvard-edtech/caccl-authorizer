@@ -358,7 +358,9 @@ module.exports = (config) => {
 
       // Refresh the token
       try {
-        if (await refreshAuthorization(req, refreshToken)) {
+        const refreshSuccessful = await refreshAuthorization(req, refreshToken);
+        console.log(`Refreshing because expiry: ${accessTokenExpiry - FIVE_MINS_MS} > ${Date.now()} – `, refreshSuccessful);
+        if (refreshSuccessful) {
           // Refresh was successful. Continue
           return next();
         }
@@ -565,10 +567,10 @@ module.exports = (config) => {
     }
 
     // Extract token
-    const accessToken = body.access_token;
-    const refreshToken = body.refresh_token;
+    let accessToken = body.access_token;
+    let refreshToken = body.refresh_token;
     const expiresInMs = (body.expires_in * 0.99 * 1000);
-    const accessTokenExpiry = Date.now() + expiresInMs;
+    let accessTokenExpiry = Date.now() + expiresInMs;
 
     // Extract user info
     const launchUserId = body.user.id;
@@ -576,6 +578,7 @@ module.exports = (config) => {
     // Store in token store:
     // - if not: simulating a launch while we already have the user's
     //   refresh token
+    let loggedIn;
     if (config.simulateLaunchOnAuthorize && !req.session.launchInfo) {
       // Simulating a launch. Check if we already have the user's
       // refresh token. If we do, try to refresh using that refresh token.
@@ -590,36 +593,45 @@ module.exports = (config) => {
         await tokenStore.get(launchUserId)
       ).refreshToken;
 
-      let refreshSuccessful = false;
+      let refreshResponse;
       if (storedRefreshToken) {
         // Attempt to refresh
-        (refreshSuccessful = await refreshAuthorization(
+        (refreshResponse = await refreshAuthorization(
           req,
           storedRefreshToken
         ));
       }
 
-      if (refreshSuccessful) {
+      if (refreshResponse) {
         // TODO: Kill the current authorization (the one we used to identify
         // the user)
-      } else {
-        // Refresh failed
-        // - Save current tokens
-        // - Login using these tokens
-        return req.logInManually(
+
+        // Extract and overwrite first authorization
+        ({
           accessToken,
           refreshToken,
-          accessTokenExpiry
-        );
+          accessTokenExpiry,
+        } = refreshResponse);
+
+        // Set logged in to true so we don't re-login
+        loggedIn = true;
+        return;
       }
+
+      // Refresh failed
+      // - Use current tokens (don't overwrite them)
+      // - Log in using these tokens
+      loggedIn = false;
     }
 
-    // Nothing to save or look up. Just log in and continue
-    await req.logInManually(
-      accessToken,
-      refreshToken,
-      accessTokenExpiry
-    );
+    // Log in and continue
+    if (!loggedIn) {
+      await req.logInManually(
+        accessToken,
+        refreshToken,
+        accessTokenExpiry
+      );
+    }
 
     // If simulating a launch, do that now
     if (config.simulateLaunchOnAuthorize && !req.session.launchInfo) {
