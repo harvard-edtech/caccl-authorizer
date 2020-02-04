@@ -290,14 +290,18 @@ module.exports = (config) => {
      * @author Gabe Abrams
      * @param {string} accessToken - the user's access token
      * @param {string} refreshToken - the user's refresh token
-     * @param {number} expiry - a ms since epoch accessToken expiry
+     * @param {number} accessTokenExpiry - a ms since epoch accessToken expiry
      */
-    req.logInManually = async (accessToken, refreshToken, expiry) => {
+    req.logInManually = async (
+      accessToken,
+      refreshToken,
+      accessTokenExpiry
+    ) => {
       // Save in the store
       await tokenStore.set(currentUserCanvasId, {
         accessToken,
         refreshToken,
-        expiry,
+        accessTokenExpiry,
       });
 
       // Call callback
