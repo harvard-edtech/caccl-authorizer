@@ -32,7 +32,7 @@ initAuthorization({
 // TODO: add routes to express app
 ```
 
-To authorize a user, redirect them to the `launchPath` via GET. `caccl-authorizer` will handle the entire authorization process then redirect them to the `defaultAuthorizedRedirect` path. After authorization, the user's access token will appear in their session: `req.session.accessToken`.
+To authorize a user, redirect them to the `launchPath` via GET. `caccl-authorizer` will handle the entire authorization process then redirect them to the `defaultAuthorizedRedirect` path. After authorization, the user's access token will appear in the `req` object: `req.accessToken`.
 
 **Important:** you must initialize `caccl-authorizer` before adding refreshed routes (see `autoRefreshRoutes` below).
 
