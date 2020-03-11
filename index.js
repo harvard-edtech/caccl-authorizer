@@ -407,6 +407,33 @@ module.exports = (config) => {
   /*                          Authorization Process                         */
   /*------------------------------------------------------------------------*/
 
+  // Step 0: Intercept errors
+  config.app.get(launchPath, async (req, res, next) => {
+    if (req.query.error || req.query.error_description) {
+      const error = (
+        (req.query.error || 'unknown_error')
+          .split('_')
+          .map((word) => {
+            if (word.length <= 1) {
+              return word.toUpperCase();
+            }
+            // Capitalize the word
+            return `${word.substring(0, 1).toUpperCase()}${word.substring(1)}`;
+          })
+          .join(' ')
+      );
+      const description = decodeURIComponent(
+        req.query.error_description
+        || 'No+further+description+could+be+found.'
+      ).replace(/\+/g, ' ');
+
+      return res.status(500).send(`A launch error occurred: ${error}. ${description}`);
+    }
+
+    // No error occurred
+    return next();
+  });
+
   // Step 1: Try to refresh, if not possible, redirect to authorization screen
   config.app.get(launchPath, async (req, res, next) => {
     if (!req.session) {
