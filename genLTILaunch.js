@@ -102,6 +102,7 @@ module.exports = (options) => {
   body.lis_person_name_full = options.profile.name;
   body.lis_person_name_given = first;
   body.lis_person_sourcedid = options.profile.login_id;
+  body.lis_course_offering_sourcedid = options.course.sis_id;
   body.lti_message_type = 'basic-lti-launch-request';
   body.lti_version = 'LTI-1p0';
   body.oauth_callback = 'about:blank';
