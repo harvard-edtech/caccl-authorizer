@@ -361,6 +361,16 @@ module.exports = (app, config) => {
           pass
         );
 
+        // LIS identifier for the course offering,
+        // Also called sis_course_id, sis_id, and ssid in Canvas
+        pass = (req.body.lis_course_offering_sourcedid === course.sis_id);
+        addRow(
+          'lis_course_offering_sourcedid',
+          'Equals LIS identifier for the course offering',
+          `Should be ${course.sis_id}`,
+          pass
+        );
+
         // lti_message_type: 'basic-lti-launch-request',
         pass = (req.body.lti_message_type === 'basic-lti-launch-request');
         addRow(
