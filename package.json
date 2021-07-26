@@ -48,7 +48,7 @@
   "dependencies": {
     "caccl-api": "^1.0.77",
     "caccl-error": "^1.0.7",
-    "caccl-lti": "^1.1.6",
+    "caccl-lti": "^1.1.8",
     "caccl-send-request": "^1.0.15",
     "ejs": "^2.7.4",
     "qs": "^6.9.6",
