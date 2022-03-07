@@ -5,24 +5,24 @@ import express from 'express';
 import CACCLError from 'caccl-error';
 import sendRequest from 'caccl-send-request';
 import { getLaunchInfo } from 'caccl-lti';
-
-// Import token store
-import MemoryTokenStore from './MemoryTokenStore.js';
+import initCACCLMemoryStore from 'caccl-memory-store';
+import InitCACCLStore from 'caccl-memory-store/lib/InitCACCLStore';
+import CACCLStore from 'caccl-memory-store/lib/CACCLStore';
 
 // Import shared types
 import ErrorCode from './shared/types/ErrorCode.js';
-import TokenStore from './shared/types/TokenStore.js';
 import DeveloperCredentials from './shared/types/DeveloperCredentials';
 import TokenPack from './shared/types/TokenPack.js';
 
 // Import shared constants
 import CACCL_PATHS from './shared/constants/CACCL_PATHS';
+import TOKEN_LIFESPAN_SEC from './shared/constants/TOKEN_LIFESPAN_SEC.js';
 
 // Constants
 const FIVE_MINS_MS = 300000;
 
 // Store a copy of the token store
-let tokenStore: TokenStore;
+let tokenStore: CACCLStore;
 
 // Store a copy of the developer credentials
 let developerCredentials: DeveloperCredentials;
@@ -61,14 +61,21 @@ const refreshAuth = async (
   }
 
   // Get the current user's token pack
-  const tokenPack = await tokenStore.get(
-    launchInfo.canvasHost,
-    launchInfo.userId,
-  );
+  const tokenPack = await tokenStore.get(`${launchInfo.canvasHost}/${launchInfo.userId}`);
   if (!tokenPack) {
     throw new CACCLError({
       message: 'We could not extend your Canvas authorization because your refresh credentials could not be found.',
       code: ErrorCode.RefreshFailedDueToTokenMissing,
+    });
+  }
+
+  // Get credentials
+  const specificCanvasCreds = developerCredentials[launchInfo.canvasHost];
+  if (!specificCanvasCreds) {
+    // No credentials for this Canvas host
+    throw new CACCLError({
+      message: 'Your Canvas session could not be extended. Please contact support.',
+      code: ErrorCode.NoCreds,
     });
   }
 
@@ -81,8 +88,8 @@ const refreshAuth = async (
       params: {
         grant_type: 'refresh_token',
         refresh_token: tokenPack.refreshToken,
-        client_id: developerCredentials.client_id,
-        client_secret: developerCredentials.client_secret,
+        client_id: specificCanvasCreds.clientId,
+        client_secret: specificCanvasCreds.clientSecret,
       },
     });
 
@@ -97,8 +104,7 @@ const refreshAuth = async (
 
     // Save in the store
     await tokenStore.set(
-      launchInfo.canvasHost,
-      launchInfo.userId,
+      `${launchInfo.canvasHost}/${launchInfo.userId}`,
       newTokenPack,
     );
 
@@ -123,21 +129,17 @@ const refreshAuth = async (
  * @param {object} opts.app - express app
  * @param {DeveloperCredentials} opts.developerCredentials canvas app developer
  *   credentials map
- * @param {TokenStore} [opts.tokenStore=memory token store] - exclude parameter to
- *   use memory token store,
- *   or include a custom token store of form { get(key), set(key, val) } where
- *   both functions return promises
- * @param {object[]} [opts.scopes] list of scope strings
+ * @param {InitCACCLStore} [opts.initTokenStore=memory store factory] a function
+ *   that creates a store for keeping track of user's API tokens and auth status
+ * @param {string[]} [opts.scopes] list of scope strings
  *   (e.g. url:GET|/api/v1/courses). These scopes will be included
  *   in all authorization requests
  */
-const initAuth = (
+const initAuth = async (
   opts: {
     app: express.Application,
     developerCredentials: DeveloperCredentials,
-    canvasHost?: string,
-    tokenStore?: TokenStore,
-    autoReauthPaths?: string[],
+    initTokenStore?: InitCACCLStore,
     scopes?: string[],
   },
 ) => {
@@ -169,10 +171,10 @@ const initAuth = (
   );
 
   // Initialize token store
-  tokenStore = (
-    opts.tokenStore
-      ? opts.tokenStore
-      : new MemoryTokenStore()
+  tokenStore = await (
+    opts.initTokenStore
+      ? opts.initTokenStore(TOKEN_LIFESPAN_SEC)
+      : initCACCLMemoryStore(TOKEN_LIFESPAN_SEC)
   );
 
   // Save copy of credentials
@@ -237,10 +239,7 @@ const initAuth = (
       }
 
       // Look for a current tokenPack
-      const tokenPack = await tokenStore.get(
-        launchInfo.canvasHost,
-        launchInfo.userId,
-      );
+      const tokenPack = await tokenStore.get(`${launchInfo.canvasHost}/${launchInfo.userId}`);
 
       // Try to refresh the current session
       if (tokenPack) {
@@ -254,7 +253,7 @@ const initAuth = (
       }
 
       // Refresh failed. Redirect to authorization process
-      const authURL = `https://${launchInfo.canvasHost}/login/oauth2/auth?client_id=${opts.developerCredentials.client_id}&response_type=code&redirect_uri=https://${req.hostname}${CACCL_PATHS.AUTHORIZE}&state=caccl${scopesQueryAddon}`;
+      const authURL = `https://${launchInfo.canvasHost}/login/oauth2/auth?client_id=${opts.developerCredentials[launchInfo.canvasHost].clientId}&response_type=code&redirect_uri=https://${req.hostname}${CACCL_PATHS.AUTHORIZE}&state=caccl${scopesQueryAddon}`;
       return res.redirect(authURL);
     },
   );
@@ -324,8 +323,8 @@ const initAuth = (
           params: {
             code,
             grant_type: 'authorization_code',
-            client_id: opts.developerCredentials.client_id,
-            client_secret: opts.developerCredentials.client_secret,
+            client_id: specificCanvasCreds.clientId,
+            client_secret: specificCanvasCreds.clientSecret,
             redirect_uri: `https://${req.hostname}${CACCL_PATHS.AUTHORIZE}`,
           },
           ignoreSSLIssues: launchInfo.canvasHost.startsWith('localhost'),
@@ -356,8 +355,7 @@ const initAuth = (
       // Store new pack
       try {
         await tokenStore.set(
-          launchInfo.canvasHost,
-          launchInfo.userId,
+          `${launchInfo.canvasHost}/${launchInfo.userId}`,
           newTokenPack,
         );
       } catch (err) {
@@ -397,10 +395,7 @@ const getAccessToken = async (req: express.Request): Promise<string> => {
   }
 
   // Check if we need to refresh
-  let tokenPack = await tokenStore.get(
-    launchInfo.canvasHost,
-    launchInfo.userId,
-  );
+  let tokenPack = await tokenStore.get(`${launchInfo.canvasHost}/${launchInfo.userId}`);
   if (!tokenPack) {
     // User is not authorized
     throw new CACCLError({
@@ -423,6 +418,8 @@ const getAccessToken = async (req: express.Request): Promise<string> => {
 /*                                 Exports                                */
 /*------------------------------------------------------------------------*/
 
+// Export initAuth
 export default initAuth;
 
+// Add named export for getAccessToken
 export { getAccessToken };

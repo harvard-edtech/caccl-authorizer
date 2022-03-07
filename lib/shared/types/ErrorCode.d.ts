@@ -9,6 +9,7 @@ declare enum ErrorCode {
     NotInitialized = "CAT8",
     RefreshFailedDueToTokenMissing = "CAT9",
     GetFailedNoSession = "CAT10",
-    GetFailedNoAuthorization = "CAT11"
+    GetFailedNoAuthorization = "CAT11",
+    NoCreds = "CAT12"
 }
 export default ErrorCode;

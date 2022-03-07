@@ -1,4 +1,4 @@
-// Highest error code: CAT11
+// Highest error code: CAT12
 
 enum ErrorCode {
   // index.js
@@ -13,6 +13,7 @@ enum ErrorCode {
   RefreshFailedDueToTokenMissing = 'CAT9',
   GetFailedNoSession = 'CAT10',
   GetFailedNoAuthorization = 'CAT11',
+  NoCreds = 'CAT12',
 };
 
 export default ErrorCode;

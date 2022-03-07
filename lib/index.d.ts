@@ -1,7 +1,6 @@
 import express from 'express';
-import TokenStore from './shared/types/TokenStore.js';
+import InitCACCLStore from 'caccl-memory-store/lib/InitCACCLStore';
 import DeveloperCredentials from './shared/types/DeveloperCredentials';
-declare let tokenStore: TokenStore;
 declare let developerCredentials: DeveloperCredentials;
 /**
  * Initializes the token manager on the given express app
@@ -10,22 +9,18 @@ declare let developerCredentials: DeveloperCredentials;
  * @param {object} opts.app - express app
  * @param {DeveloperCredentials} opts.developerCredentials canvas app developer
  *   credentials map
- * @param {TokenStore} [opts.tokenStore=memory token store] - exclude parameter to
- *   use memory token store,
- *   or include a custom token store of form { get(key), set(key, val) } where
- *   both functions return promises
- * @param {object[]} [opts.scopes] list of scope strings
+ * @param {InitCACCLStore} [opts.initTokenStore=memory store factory] a function
+ *   that creates a store for keeping track of user's API tokens and auth status
+ * @param {string[]} [opts.scopes] list of scope strings
  *   (e.g. url:GET|/api/v1/courses). These scopes will be included
  *   in all authorization requests
  */
 declare const initAuth: (opts: {
     app: express.Application;
     developerCredentials: DeveloperCredentials;
-    canvasHost?: string;
-    tokenStore?: TokenStore;
-    autoReauthPaths?: string[];
+    initTokenStore?: InitCACCLStore;
     scopes?: string[];
-}) => void;
+}) => Promise<void>;
 /**
  * Get the user's current access token
  * @author Gabe Abrams
