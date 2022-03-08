@@ -1,6 +1,6 @@
 {
   "name": "caccl-authorizer",
-  "version": "2.0.0-beta.10",
+  "version": "2.0.0-beta.15",
   "description": "Acquires Canvas tokens through via OAuth, stores refresh tokens, and refreshes access tokens when they expire.",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -38,10 +38,10 @@
     "typescript": "^4.5.5"
   },
   "dependencies": {
-    "caccl-error": "^2.0.0-beta.10",
-    "caccl-lti": "^2.0.0-beta.10",
-    "caccl-memory-store": "^2.0.0-beta.10",
-    "caccl-send-request": "^2.0.0-beta.10",
+    "caccl-error": "^2.0.0-beta.15",
+    "caccl-lti": "^2.0.0-beta.15",
+    "caccl-memory-store": "^2.0.0-beta.15",
+    "caccl-send-request": "^2.0.0-beta.15",
     "express": "^4.17.3"
   }
 }
