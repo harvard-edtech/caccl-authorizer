@@ -187,7 +187,11 @@ const initAuth = async (
   // Step 0: Intercept errors
   opts.app.get(
     CACCL_PATHS.AUTHORIZE,
-    async (req, res, next) => {
+    async (
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction,
+    ) => {
       if (req.query.error || req.query.error_description) {
         const error = (
           String(req.query.error || 'unknown_error')
@@ -217,7 +221,11 @@ const initAuth = async (
   // Step 1: Try to refresh, if not possible, redirect to authorization screen
   opts.app.get(
     CACCL_PATHS.AUTHORIZE,
-    async (req, res, next) => {
+    async (
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction,
+    ) => {
       const {
         launched,
         launchInfo,
@@ -261,7 +269,11 @@ const initAuth = async (
   // Step 2: Receive code or denial
   opts.app.get(
     CACCL_PATHS.AUTHORIZE,
-    async (req, res, next) => {
+    async (
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction,
+    ) => {
       // Skip unless we have a code OR error and state indicates this is CACCL
       if (
         !req.query
