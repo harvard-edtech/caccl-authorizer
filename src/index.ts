@@ -355,7 +355,6 @@ const initAuth = async (
             client_secret: specificCanvasCreds.clientSecret,
             redirect_uri: `https://${req.hostname}${CACCL_PATHS.AUTHORIZE}`,
           },
-          ignoreSSLIssues: launchInfo.canvasHost.startsWith('localhost'),
         });
       } catch (err) {
         // Could not trade auth code for tokens
