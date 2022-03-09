@@ -260,8 +260,14 @@ const initAuth = async (
         }
       }
 
+      // Get developer credentials
+      const devCreds = opts.developerCredentials[launchInfo.canvasHost];
+      if (!devCreds) {
+        return res.status(404).send('We could not authorize you with Canvas because this app is not prepared for use with this Canvas instance.');
+      }
+
       // Refresh failed. Redirect to authorization process
-      const authURL = `https://${launchInfo.canvasHost}/login/oauth2/auth?client_id=${opts.developerCredentials[launchInfo.canvasHost].clientId}&response_type=code&redirect_uri=https://${req.hostname}${CACCL_PATHS.AUTHORIZE}&state=caccl${scopesQueryAddon}`;
+      const authURL = `https://${launchInfo.canvasHost}/login/oauth2/auth?client_id=${devCreds.clientId}&response_type=code&redirect_uri=https://${req.hostname}${CACCL_PATHS.AUTHORIZE}&state=caccl${scopesQueryAddon}`;
       return res.redirect(authURL);
     },
   );
