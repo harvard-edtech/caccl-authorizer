@@ -27,6 +27,9 @@ let tokenStore: CACCLStore;
 // Store a copy of the developer credentials
 let developerCredentials: DeveloperCredentials;
 
+// Check if this is a dev environment
+const thisIsDevEnvironment = (process.env.NODE_ENV === 'development');
+
 /*------------------------------------------------------------------------*/
 /*                                 Helpers                                */
 /*------------------------------------------------------------------------*/
@@ -167,7 +170,7 @@ const initAuth = async (
   const scopesQueryAddon = (
     opts.scopes
       ? `&scopes=${encodeURIComponent(opts.scopes.join(' '))}`
-      : undefined
+      : ''
   );
 
   // Initialize token store
@@ -266,8 +269,15 @@ const initAuth = async (
         return res.status(404).send('We could not authorize you with Canvas because this app is not prepared for use with this Canvas instance.');
       }
 
+      // Get the app's host
+      const appHost = (
+        thisIsDevEnvironment
+          ? 'localhost:8080'
+          : req.hostname
+      );
+
       // Refresh failed. Redirect to authorization process
-      const authURL = `https://${launchInfo.canvasHost}/login/oauth2/auth?client_id=${devCreds.clientId}&response_type=code&redirect_uri=https://${req.hostname}${CACCL_PATHS.AUTHORIZE}&state=caccl${scopesQueryAddon}`;
+      const authURL = `https://${launchInfo.canvasHost}/login/oauth2/auth?client_id=${devCreds.clientId}&response_type=code&redirect_uri=https://${appHost}${CACCL_PATHS.AUTHORIZE}&state=caccl${scopesQueryAddon}`;
       return res.redirect(authURL);
     },
   );
