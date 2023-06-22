@@ -169,7 +169,7 @@ const initAuth = async (
   // Initialize scopes
   const scopesQueryAddon = (
     opts.scopes
-      ? `&scopes=${encodeURIComponent(opts.scopes.join(' '))}`
+      ? `&scope=${encodeURIComponent(opts.scopes.join(' '))}`
       : ''
   );
 

@@ -1,4 +1,4 @@
-declare type TokenPack = {
+type TokenPack = {
     accessToken: string;
     refreshToken: string;
     accessTokenExpiry: number;
