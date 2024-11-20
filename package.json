@@ -5,7 +5,7 @@
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "scripts": {
-    "build": "tsc --project ./tsconfig.json"
+    "build": "./node_modules/typescript/bin/tsc --project ./tsconfig.json"
   },
   "repository": {
     "type": "git",

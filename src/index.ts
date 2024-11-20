@@ -37,7 +37,7 @@ const thisIsDevEnvironment = (process.env.NODE_ENV === 'development');
 /**
  * Refresh the user's authorization
  * @author Gabe Abrams
- * @async
+ * @param req - express request object
  * @returns the new token pack
  */
 const refreshAuth = async (
@@ -257,6 +257,11 @@ const initAuth = async (
         // Refresh the token
         try {
           await refreshAuth(req);
+
+          // Refresh successful!
+
+          // We're done authorizing. Redirect to homepage
+          return res.redirect(CACCL_PATHS.HOME);
         } catch (err) {
           // Refresh failed. Show error to user
           return res.status(403).send('Your Canvas authorization has expired and we could not refresh your credentials.');
