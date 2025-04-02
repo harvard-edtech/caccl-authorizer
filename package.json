@@ -1,6 +1,6 @@
 {
   "name": "caccl-authorizer",
-  "version": "2.2.19-log-api-forwarding-beta.2",
+  "version": "2.2.19",
   "description": "Acquires Canvas tokens through via OAuth, stores refresh tokens, and refreshes access tokens when they expire.",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
