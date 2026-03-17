@@ -1,7 +1,6 @@
 import express from 'express';
 import InitCACCLStore from 'caccl-memory-store/lib/InitCACCLStore';
 import DeveloperCredentials from './shared/types/DeveloperCredentials';
-declare let developerCredentials: DeveloperCredentials;
 /**
  * Initializes the token manager on the given express app
  * @author Gabriel Abrams
