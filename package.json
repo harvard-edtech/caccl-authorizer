@@ -38,10 +38,10 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "caccl-error": "^2.5.0-beta-new-requests",
-    "caccl-lti": "^2.5.0-beta-new-requests",
-    "caccl-memory-store": "^2.5.0-beta-new-requests",
-    "caccl-send-request": "^2.5.0-beta-new-requests",
+    "caccl-error": "^2.5.1",
+    "caccl-lti": "^2.5.1",
+    "caccl-memory-store": "^2.5.1",
+    "caccl-send-request": "^2.5.1",
     "express": "^4.17.3"
   }
 }
